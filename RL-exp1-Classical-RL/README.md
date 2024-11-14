@@ -28,17 +28,21 @@
   - stochastic: $a_t \sim \pi(\cdot|s_t)$
 
 - **值函数（Value Function）**：用于评估给定状态或状态-动作对的累积奖励， 是对未来收益的预期，在强调当下收益的前提下，保证未来收益足够大，因此通常定义如下：
+
   $$
   G(\tau) = \sum_{t=0}^{\infin} \gamma^t R_t (s_t,a_t,s_{t+1}),\quad\gamma\in(0,1)
   $$
+  
   常用的值函数有以下两类定义：
   
   - **Value Function：** 指在当前状态 $s$ 下，执行策略 $\pi$ 获得的累积奖励：
+  
     $$
     V^{\pi}(s)=\mathbb E_{\tau\sim\pi}[G(\tau)|s_0=s]=\mathbb E_{\tau\sim\pi,s'\sim P}\left[r(s,a)+\gamma V^{\pi}(s')\right]
     $$
   
   - **Action-Value Function:** 指在给定状态 $s$ 和当下执行的行动 $a$ 后得到的累积奖励：
+  
     $$
     Q^{\pi}(s,a)=\mathbb E_{\tau\sim\pi}[G(\tau)|s_0=s,a_0=a]=\mathbb E_{s'\sim P}\left[r(s,a+\gamma \mathbb E_{a\sim \pi}[Q^{\pi}(s',a')])\right]
     $$
@@ -62,10 +66,13 @@
 - **策略（Policy）**：直接学习最优策略 $\pi_{\theta}(a|s)$ ，将状态映射到最优动作上，常用策略优化方法（Policy Optimization）来实现。
 
 - **值函数或动作-值函数（Value Functions/Q-Functions）**：学习状态的累积奖励或状态-动作对的累积奖励，使用Bellman方程进行更新,计算每个状态-动作对的动作值，并以最大化未来累积奖励为目标来逐步逼近最优值函数 $Q^*$。以间接获得最优策略：
+
   $$
   a(s)=\arg \max_a Q^*(s,a)
   $$
+  
   通常为了保证得某一个状态下所有可能的行为都有 一定的几率被选择到以此来保证足够的探索，使用 $\epsilon-greedy$ 贪婪搜索来指定策略，即：
+  
   $$
   \pi(a|s)=\left\{
   \begin{aligned}
@@ -90,10 +97,12 @@
 
 ### 2.1 Monte Carlo（MC）Control
 
-MC算法是一种基于样本的强化学习方法，通过在每个 state-action pair 访问中，使用平均累积奖励来估计值函数。MC算法通过完整的回合进行更新，即必须等到回合结束才能计算每个状态的回报，并进行值函数的更新。在每次采样时得到序列 $T=(s_0,a_0,r_1,s_1,a_1,...,s_{T-1},a_{T-1},r_{T},end)$，对 $Q(a,s)$ 更新公式如下：
+MC算法是一种基于样本的强化学习方法，通过在每个 state-action pair 访问中，使用平均累积奖励来估计值函数。MC算法通过完整的回合进行更新，即必须等到回合结束才能计算每个状态的回报，并进行值函数的更新。在每次采样时得到序列 $T=(s_0,a_0,r_1,s_1,a_1,...,s_{T-1},a_{T-1},r_{T},end)$, 对  $Q(a,s)$ 更新公式如下：
+
 $$
 Q(s,a)\larr Q(s,a)+\alpha(G_t(s,a)-Q(s,a))
 $$
+
 其中 $\alpha=1/N(s，a)$ 是统计到该状态-动作的平均因子，$G_t(s,a)$ 表示在本次采样过程 $T$  中从 $(s,a)$开始到终止位置 $end$ 的累积收益。
 
 采用了 **On-policy** 的算法：即探索行为策略和优化目标策略一致。对于利用探索结果的序列，有两种更新方式：
@@ -115,9 +124,11 @@ First-visit 算法如下：
 SARSA (State-Action-Reward-State-Action)是一种基于时间差分（Temporal Difference, TD）的在线强化学习算法。它通过每个时间步的奖励进行值函数更新。SARSA是一种**on-policy**算法，即值函数更新使用的是当前策略 $\pi$ 下的行动。
 
 更新公式如下：
+
 $$
 Q(s,a)\larr Q(s,a)+\alpha[R(s,a,s')+\gamma Q(s',a')-Q(s,a)]
 $$
+
 其中，$\alpha$ 是学习率，$\gamma$ 是折扣因子， $s'$ 和 $a'$ 分别是下一步的状态和行动。
 
 <img src="assets/image-20241114210650721.png" alt="image-20241114210650721" style="zoom: 50%;" />
@@ -128,9 +139,11 @@ $$
 ### 2.3 Q-Learning算法
 
 Q-Learning是一种基于TD的**off-policy**算法，通过学习一个最优的状态-行动值函数来最大化未来的累计奖励。与SARSA不同，Q-Learning不依赖于当前的策略，而是使用最大化的动作值来更新值函数。更新公式如下：
+
 $$
 Q(s,a)\larr Q(s,a)+\alpha[R(s,a,s')+\gamma \max_{a'}Q(s',a')-Q(s,a)]
 $$
+
 Q-Learning算法更新中不使用当前策略的行动选择，而是选择最优行动（off-policy），因此在策略迭代中往往收敛更快。
 
 <img src="assets/image-20241114215655325.png" alt="image-20241114215655325" style="zoom: 50%;" />
@@ -143,9 +156,11 @@ Q-Learning算法更新中不使用当前策略的行动选择，而是选择最�
 Double Q-Learning是一种针对Q-Learning过估计问题的改进算法。Q-Learning在更新过程中倾向于高估动作值函数的值，尤其是在高方差环境中。这是因为Q-Learning总是选择能使未来奖励最大化的动作，但在实际操作中，该动作值可能由于偶然的高奖励而被过度估计，进而影响策略的稳定性。为解决这一问题，Double Q-Learning引入了双重估计机制，以降低过估计的风险。
 
 在Double Q-Learning中，我们维护两个独立的Q值表，分别记为$Q_1$和$Q_2$。每次更新时，随机选择一个Q表进行更新，例如在更新 $Q_1$ 时使用如下公式：
+
 $$
 Q_1(s, a) \leftarrow Q_1(s, a) + \alpha \left[ R(s, a, s') + \gamma Q_2 \left(s', \arg \max_{a'} Q_1(s', a') \right) - Q_1(s, a) \right]
 $$
+
 同样地，在更新$Q_2$时，则使用$Q_1$中的值来选择最佳动作。具体来说，Double Q-Learning在更新时分两步进行：
 
 1. 使用第一个Q表中的值来选择动作，但不直接用于计算更新目标，而是依赖第二个Q表来评估该动作的价值。
