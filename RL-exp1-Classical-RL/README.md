@@ -18,9 +18,9 @@
 
 - **动作（Action）** $a_t\in A$：智能体在给定状态下的可能行为。
 
-- **即时奖励（Reward）** $R_t\in R: S\times A \times S \rarr \mathbb R$ ：反馈信号，用于指示智能体采取的动作是否有利于实现目标。
+- **即时奖励（Reward）** $R_t\in R: S\times A \times S \rightarrow \mathbb R$ ：反馈信号，用于指示智能体采取的动作是否有利于实现目标。
 
-- **概率轨迹 (transition probability)** $P: S\times A\rarr P(S) $，表示在给定当前状态 $s$ 和执行动作 $a$ 后，转移到其他状态 $s'$ 的概率，$P(s'|s,a)$
+- **概率轨迹 (transition probability)** $P: S\times A\rightarrow P(S) $，表示在给定当前状态 $s$ 和执行动作 $a$ 后，转移到其他状态 $s'$ 的概率，$P(s'|s,a)$
 
 - **策略（Policy）**：智能体基于状态选择行动的规则或函数:
 
@@ -30,7 +30,7 @@
 - **值函数（Value Function）**：用于评估给定状态或状态-动作对的累积奖励， 是对未来收益的预期，在强调当下收益的前提下，保证未来收益足够大，因此通常定义如下：
 
   $$
-  G(\tau) = \sum_{t=0}^{\infin} \gamma^t R_t (s_t,a_t,s_{t+1}),\quad\gamma\in(0,1)
+  G(\tau) = \sum_{t=0}^{\infty} \gamma^t R_t (s_t,a_t,s_{t+1}),\quad\gamma\in(0,1)
   $$
   
   常用的值函数有以下两类定义：
@@ -61,7 +61,7 @@
 
 ### 1.3 Model-Free Control Problem
 
-在无模型强化学习中，是指在给定 $(S,A,P,R)$ 下，学习最优的策略 $\pi ^*$ 以获得最优值函数 $V^*,Q^*$
+在无模型强化学习中，是指在给定 ($S,A,P,R$) 下，学习最优的策略 $\pi ^*$ 以获得最优值函数 $V^*,Q^*$
 
 - **策略（Policy）**：直接学习最优策略 $\pi_{\theta}(a|s)$ ，将状态映射到最优动作上，常用策略优化方法（Policy Optimization）来实现。
 
@@ -100,7 +100,7 @@
 MC算法是一种基于样本的强化学习方法，通过在每个 state-action pair 访问中，使用平均累积奖励来估计值函数。MC算法通过完整的回合进行更新，即必须等到回合结束才能计算每个状态的回报，并进行值函数的更新。在每次采样时得到序列 $T=(s_0,a_0,r_1,s_1,a_1,...,s_{T-1},a_{T-1},r_{T},end)$, 对  $Q(a,s)$ 更新公式如下：
 
 $$
-Q(s,a)\larr Q(s,a)+\alpha(G_t(s,a)-Q(s,a))
+Q(s,a)\leftarrow Q(s,a)+\alpha(G_t(s,a)-Q(s,a))
 $$
 
 其中 $\alpha=1/N(s，a)$ 是统计到该状态-动作的平均因子，$G_t(s,a)$ 表示在本次采样过程 $T$  中从 $(s,a)$开始到终止位置 $end$ 的累积收益。
@@ -141,7 +141,7 @@ $$
 Q-Learning是一种基于TD的**off-policy**算法，通过学习一个最优的状态-行动值函数来最大化未来的累计奖励。与SARSA不同，Q-Learning不依赖于当前的策略，而是使用最大化的动作值来更新值函数。更新公式如下：
 
 $$
-Q(s,a)\larr Q(s,a)+\alpha[R(s,a,s')+\gamma \max_{a'}Q(s',a')-Q(s,a)]
+Q(s,a)\leftarrow Q(s,a)+\alpha[R(s,a,s')+\gamma \max_{a'}Q(s',a')-Q(s,a)]
 $$
 
 Q-Learning算法更新中不使用当前策略的行动选择，而是选择最优行动（off-policy），因此在策略迭代中往往收敛更快。
