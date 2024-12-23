@@ -317,6 +317,7 @@ def main():
     agent.save_train_model("final")
     env.close()
     if writer:
+        writer.add_hparams(vars(args), {'hparam/Reward': best_reward})
         writer.close()
 
 if __name__ == '__main__':
