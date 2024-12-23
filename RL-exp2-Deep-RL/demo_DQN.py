@@ -9,6 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 import collections
 import argparse
 from tqdm import tqdm
+import time
 
 # Hyperparameters
 EPISODES = 2000  # Number of training/testing episodes
@@ -46,6 +47,9 @@ def get_args():
     parser.add_argument("--episodes", '-n', type=int, default=EPISODES)
     parser.add_argument("--batch_size", '-b', type=int, default=BATCH_SIZE)
     parser.add_argument("--learning_rate", '-lr', type=float, default=LR)
+    parser.add_argument("--scheduler", '-s', action="store_true")
+    parser.add_argument("--patience", '-p', type=int, default=200)
+
     parser.add_argument("--gamma", '-g', type=float, default=GAMMA)
     parser.add_argument("--tau", '-t', type=float, default=TAU)
     parser.add_argument("--saving_iteration", '-si', type=int, default=SAVING_IETRATION)
@@ -94,17 +98,17 @@ class Memory:
 
     def get(self, batch_size):
         batch = random.sample(self.buffer, batch_size)
-        states = torch.tensor([data.state for data in batch], dtype=torch.float)
-        actions = torch.tensor([data.action for data in batch], dtype=torch.long).unsqueeze(1)
-        rewards = torch.tensor([data.reward for data in batch], dtype=torch.float).unsqueeze(1)
-        next_states = torch.tensor([data.next_state for data in batch], dtype=torch.float)
-        dones = torch.tensor([data.done for data in batch], dtype=torch.float).unsqueeze(1)
+        states = torch.tensor(np.array([data.state for data in batch]), dtype=torch.float)
+        actions = torch.tensor(np.array([data.action for data in batch]), dtype=torch.long).unsqueeze(1)
+        rewards = torch.tensor(np.array([data.reward for data in batch]), dtype=torch.float).unsqueeze(1)
+        next_states = torch.tensor(np.array([data.next_state for data in batch]), dtype=torch.float)
+        dones = torch.tensor(np.array([data.done for data in batch]), dtype=torch.float).unsqueeze(1)
         return states, actions, rewards, next_states, dones
 
 class DQN():
     """Deep Q-Network"""
 
-    def __init__(self, config):
+    def __init__(self, config, method='DQN'):
         super(DQN, self).__init__()
         self.device = config['device']
         self.num_actions = config['num_actions']
@@ -113,6 +117,7 @@ class DQN():
         self.save_path = config['save_path']
         self.q_network_iteration = config['q_network_iteration']
         self.saving_iteration = config['saving_iteration']
+        self.method = method
 
         self.eval_net = Model(num_inputs=self.num_states, num_actions=self.num_actions).to(self.device)
         self.target_net = Model(num_inputs=self.num_states, num_actions=self.num_actions).to(self.device)
@@ -123,9 +128,13 @@ class DQN():
         self.memory_counter = 0
         self.memory = Memory(config['memory_capacity'])
         self.optimizer = torch.optim.Adam(self.eval_net.parameters(), lr=config['learning_rate'])
+        if config['scheduler']:
+            self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=5000, gamma=0.95)
+        else:
+            self.scheduler = None
         self.loss_func = nn.MSELoss()
 
-    def choose_action(self, state, EPSILON=0.001):
+    def choose_action(self, state, EPSILON=0.01):
         state = torch.tensor(state, dtype=torch.float).to(self.device)
         ENV_A_SHAPE = self.env_a_shape
         NUM_ACTIONS = self.num_actions
@@ -166,9 +175,16 @@ class DQN():
         # Current Q values
         q_eval = self.eval_net(states).gather(1, actions)
 
-        # Next Q values from target network
+        # DQN: Action Selection and Evaluation using eval_net
+        # Double DQN: Action Selection using eval_net, Action Evaluation using target_net
         with torch.no_grad():
-            q_next = self.target_net(next_states).max(1, keepdim=True)[0]
+            if self.method == 'DQN':
+                q_next = self.target_net(next_states).max(1, keepdim=True)[0]
+            elif self.method == 'DDQN':
+                # Select the best action based on eval_net
+                actions_eval = self.eval_net(next_states).argmax(1, keepdim=True)
+                # Evaluate the selected actions using target_net
+                q_next = self.target_net(next_states).gather(1, actions_eval)
             q_target = rewards + GAMMA * q_next * (1 - dones)
 
         # Compute loss
@@ -178,6 +194,9 @@ class DQN():
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+        if self.scheduler:
+            self.scheduler.step()
+        return loss.item()
 
     def save_train_model(self, epoch):
         ckpt_path = os.path.join(self.save_path, 'ckpt')
@@ -193,7 +212,10 @@ class DQN():
 
 def main():
     args = get_args()
-    save_path = os.path.join(args.save_path, args.env, args.algorithm)
+    if args.test:
+        args.episodes = 1
+    timenow = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
+    save_path = os.path.join(args.save_path, args.env, args.algorithm, timenow)
     writer = None if args.test else SummaryWriter(save_path)
 
     random.seed(args.seed)
@@ -205,8 +227,10 @@ def main():
     # Create environment
     if args.env == 'CartPole-v1':
         env = gym.make('CartPole-v1', render_mode="human" if args.test else None)
-    elif args.env == 'MountainCar-v0':
-        env = gym.make('MountainCar-v0', render_mode="human" if args.test else None)
+    # elif args.env == "Pendulum-v1":
+    #     env = gym.make("Pendulum-v1", g=9.81, render_mode="human" if args.test else None)
+    elif args.env == 'Acrobot-v1':
+        env = gym.make('Acrobot-v1', render_mode="human" if args.test else None)
     elif args.env == 'LunarLander-v2':
         env = gym.make("LunarLander-v2", continuous=False, gravity=-10.0, enable_wind=True, wind_power=15.0, turbulence_power=1.5, render_mode="human" if args.test else None)
 
@@ -223,23 +247,16 @@ def main():
         'device': device,
         'memory_capacity': args.memory_capacity,
         'learning_rate': args.learning_rate,
-        'epsilon': args.epsilon,
-        'epsilon_decay': 1000,  # You can make this configurable if desired
-        'epsilon_min': 0.01,  # You can make this configurable if desired
+        'scheduler': args.scheduler,
         'save_path': save_path,
         'q_network_iteration': args.q_network_iteration,
         'saving_iteration': args.saving_iteration
     }
 
     # Instantiate the chosen algorithm
-    if args.algorithm == 'DQN':
-        agent = DQN(config)
-        print("Using DQN Algorithm")
-    elif args.algorithm == 'DDQN':
-        agent = DDQN(config)
-        print("Using DDQN Algorithm")
-    else:
-        raise ValueError("Unsupported algorithm type. Choose either 'DQN' or 'DDQN'.")
+    args.algorithm = args.algorithm.upper()
+    agent = DQN(config, method=args.algorithm)
+    print(f"Using {args.algorithm} Algorithm")
 
     if args.test:
         if args.model == '':
@@ -247,12 +264,18 @@ def main():
         agent.load_net(args.model)
 
     with tqdm(range(args.episodes)) as pbar:
+        best_reward = -np.inf
+        early_stopping = 0
         for i in range(args.episodes):
+            if early_stopping == args.patience:
+                print(f"Early Stopping at Episode {i}, Best Reward: {best_reward}")
+                break
             # print(f"EPISODE: {i+1}/{args.episodes}")
             state, info = env.reset(seed=args.seed)
             state = np.array(state)  # Ensure state is a NumPy array
-
             ep_reward = 0
+            loss = 0
+            count = 0
             while True:
                 action = agent.choose_action(
                     state=state,
@@ -267,21 +290,29 @@ def main():
                     env.render()
 
                 if agent.memory_counter >= args.min_capacity and not args.test:
-                    agent.learn(BATCH_SIZE=args.batch_size, GAMMA=args.gamma)
+                    loss = loss + agent.learn(BATCH_SIZE=args.batch_size, GAMMA=args.gamma)
+                    count += 1
 
                 if done or truncated:
                     if args.test:
                         pbar.set_postfix({'Test Reward': round(ep_reward, 3)})
                     else:
                         # print(f"Train Episode: {i+1} , Reward: {round(ep_reward, 3)}")
-                        pbar.set_postfix({'Reward': round(ep_reward, 3)})
+                        if done and ep_reward > best_reward:
+                            best_reward = ep_reward
+                            early_stopping = 0
+                            agent.save_train_model("best")
+                        pbar.set_postfix({'Loss': loss / count if count != 0 else 0,
+                                        'Reward': round(ep_reward, 3),        
+                                        'Best Reward': round(best_reward, 3)})
                     break
-
                 state = next_state
             pbar.update(1)
+            early_stopping += 1
             if writer:
                 writer.add_scalar('Reward', ep_reward, global_step=i)
-
+                writer.add_scalar('Loss', loss / count if count != 0 else 0, global_step=i)
+    agent.save_train_model("final")
     env.close()
     if writer:
         writer.close()
