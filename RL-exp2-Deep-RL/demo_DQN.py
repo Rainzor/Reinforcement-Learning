@@ -314,6 +314,8 @@ def main():
             if writer:
                 writer.add_scalar('Reward', ep_reward, global_step=i)
                 writer.add_scalar('Loss', loss / count if count != 0 else 0, global_step=i)
+                if early_stopping == 1:
+                    writer.add_scalar('Best Reward', best_reward, global_step=i)
     agent.save_train_model("final")
     env.close()
     if writer:
