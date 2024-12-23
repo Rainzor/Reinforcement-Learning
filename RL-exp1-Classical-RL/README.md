@@ -126,7 +126,10 @@ SARSA (State-Action-Reward-State-Action)是一种基于时间差分（Temporal D
 更新公式如下：
 
 $$
-Q(s,a)\leftarrow Q(s,a)+\alpha[R(s,a,s')+\gamma Q(s',a')-Q(s,a)]
+\begin{aligned}
+Q(s,a) \leftarrow& Q(s,a)+\alpha[R(s,a,s')+\gamma Q(s',a')-Q(s,a)] \\
+& = (1-\alpha)Q(s,a)+\alpha[R(s,a,s')+\gamma Q(s',a')]
+\end{aligned}
 $$
 
 其中，$\alpha$ 是学习率，$\gamma$ 是折扣因子， $s'$ 和 $a'$ 分别是下一步的状态和行动。
