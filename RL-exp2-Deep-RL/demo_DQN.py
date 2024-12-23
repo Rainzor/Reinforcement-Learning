@@ -231,8 +231,8 @@ def main():
     #     env = gym.make("Pendulum-v1", g=9.81, render_mode="human" if args.test else None)
     elif args.env == 'Acrobot-v1':
         env = gym.make('Acrobot-v1', render_mode="human" if args.test else None)
-    elif args.env == 'LunarLander-v2':
-        env = gym.make("LunarLander-v2", continuous=False, gravity=-10.0, enable_wind=True, wind_power=15.0, turbulence_power=1.5, render_mode="human" if args.test else None)
+    elif args.env == 'LunarLander-v3':
+        env = gym.make("LunarLander-v3", continuous=False, gravity=-10.0, enable_wind=True, wind_power=15.0, turbulence_power=1.5, render_mode="human" if args.test else None)
 
     num_actions = env.action_space.n  # e.g., 2 for CartPole-v1
     num_states = env.observation_space.shape[0]  # e.g., 4 for CartPole-v1
