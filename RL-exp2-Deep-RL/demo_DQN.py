@@ -61,6 +61,8 @@ def get_args():
     parser.add_argument("--min_capacity", '-minc', type=int, default=MIN_CAPACITY)
     parser.add_argument("--q_network_iteration", '-qi', type=int, default=Q_NETWORK_ITERATION)
     parser.add_argument("--epsilon", '-eps', type=float, default=EPSILON)
+
+    parser.add_argument("--must-done", '-md', action="store_true")
     
     # New argument to choose the algorithm
     parser.add_argument("--algorithm", '-alg', type=str, choices=['DQN', 'DoubleDQN','DuelingDQN'], default='DQN', 
@@ -347,7 +349,7 @@ def main():
                 ep_reward = ep_reward + reward
                 if args.test:
                     env.render()
-
+                truncated = truncated and (not args.must_done)
                 if done or truncated:
                     if args.test:
                         pbar.set_postfix({'Test Reward': round(ep_reward, 3)})
