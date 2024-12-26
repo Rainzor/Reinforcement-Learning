@@ -352,7 +352,7 @@ def main():
                     else:
                         if not first_done or done:
                             if ep_reward > best_reward:
-                                best_reward = ep_reward
+                                best_reward = ep_reward.copy()
                                 early_stopping = 0
                                 agent.save_train_model("best")
                         pbar.set_postfix({'Loss': loss / count if count != 0 else 0,
