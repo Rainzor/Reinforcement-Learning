@@ -241,15 +241,12 @@ class DQN():
         ckpt_path = os.path.join(self.save_path, 'ckpt')
         os.makedirs(ckpt_path, exist_ok=True)
         torch.save(self.eval_net.state_dict(),
-                     os.path.join(ckpt_path, f"{epoch}_eval.pth"))
-        torch.save(self.target_net.state_dict(),
-                        os.path.join(ckpt_path, f"{epoch}_target.pth"))
+                     os.path.join(ckpt_path, f"{epoch}.pth"))
 
 
     def load_net(self, eval_file):
-        target_net_file = eval_file.replace("eval", "target")
         self.eval_net.load_state_dict(torch.load(eval_file, map_location=self.device, weights_only=True))
-        self.target_net.load_state_dict(torch.load(target_net_file, map_location=self.device, weights_only=True))
+        self.target_net.load_state_dict(torch.load(eval_file, map_location=self.device, weights_only=True))
 
 
 def dis_to_con(discrete_action, env, num_actions):
