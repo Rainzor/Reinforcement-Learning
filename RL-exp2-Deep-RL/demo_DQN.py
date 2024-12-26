@@ -355,7 +355,7 @@ def main():
                             if ep_reward > best_reward:
                                 best_reward = copy.deepcopy(ep_reward)
                                 early_stopping = 0
-                                agent.save_train_model("best")
+                                agent.save_train_model(f"best_{best_reward}")
                         pbar.set_postfix({'Loss': loss / count if count != 0 else 0,
                                         'Reward': round(ep_reward, 3),
                                         'Max Q Value': max_q_value,      
