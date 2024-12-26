@@ -244,8 +244,8 @@ class DQN():
                      os.path.join(ckpt_path, f"{epoch}.pth"))
 
     def load_net(self, file):
-        self.eval_net.load_state_dict(torch.load(file, map_location=self.device))
-        self.target_net.load_state_dict(torch.load(file, map_location=self.device))
+        self.eval_net.load_state_dict(torch.load(file, map_location=self.device, weights_only=True))
+        self.target_net.load_state_dict(torch.load(file, map_location=self.device, weights_only=True))
 
 
 def dis_to_con(discrete_action, env, num_actions):
@@ -356,6 +356,7 @@ def main():
                                 best_reward = copy.deepcopy(ep_reward)
                                 early_stopping = 0
                                 agent.save_train_model(f"best_{i}")
+                                print(f"Best Reward at Episode {i}, Reward: {ep_reward}")
                         pbar.set_postfix({'Loss': loss / count if count != 0 else 0,
                                         'Reward': round(ep_reward, 3),
                                         'Max Q Value': max_q_value,      
@@ -366,7 +367,7 @@ def main():
                     break
                 
                 if agent.memory_counter >= args.min_capacity and not args.test:
-                    loss = loss + agent.learn(BATCH_SIZE=args.batch_size)
+                    loss += agent.learn(BATCH_SIZE=args.batch_size)
                     count += 1
                 state = next_state
             pbar.update(1)
