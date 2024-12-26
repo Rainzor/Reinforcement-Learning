@@ -20,7 +20,7 @@ TAU = 0.005
 ACTION_DIM = 11
 SAVING_IETRATION = 10000  # Interval for saving checkpoints
 MEMORY_CAPACITY = 10000  # Capacity of replay memory
-MIN_CAPACITY = 1000  # Minimum memory before learning starts
+MIN_CAPACITY = 1024  # Minimum memory before learning starts
 Q_NETWORK_ITERATION =50  # Interval for syncing target network
 EPSILON = 0.01  # epsilon-greedy
 SEED = 0
@@ -84,12 +84,15 @@ class VAnet(torch.nn.Module):
     def __init__(self, num_inputs, hidden_dim, num_actions):
         super(VAnet, self).__init__()
         self.fc1 = torch.nn.Linear(num_inputs, hidden_dim)
+        self.fc2 = torch.nn.Linear(hidden_dim, hidden_dim)
         self.fc_A = torch.nn.Linear(hidden_dim, num_actions)
         self.fc_V = torch.nn.Linear(hidden_dim, 1)
 
     def forward(self, x):
-        A = self.fc_A(F.relu(self.fc1(x)))
-        V = self.fc_V(F.relu(self.fc1(x)))
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        A = self.fc_A(x)
+        V = self.fc_V(x)
         Q = V + A - A.mean(-1).view(-1, 1)
         return Q
 
@@ -265,13 +268,15 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Create environment
-    if args.env == 'CartPole-v1':
+    if args.env == 'CartPole':
         env = gym.make('CartPole-v1', render_mode="human" if args.test else None)
     elif args.env == "Pendulum-v1":
-        env = gym.make("Pendulum-v1", g=9.81, render_mode="human" if args.test else None)
-    elif args.env == 'Acrobot-v1':
+        env = gym.make("Pendulum", g=9.81, render_mode="human" if args.test else None)
+    elif args.env == 'Acrobot':
         env = gym.make('Acrobot-v1', render_mode="human" if args.test else None)
-    elif args.env == 'LunarLander-v3':
+    elif args.env == 'MountainCar':
+        env = gym.make("MountainCarContinuous-v0", render_mode="human" if args.test else None)
+    elif args.env == 'LunarLander':
         env = gym.make("LunarLander-v3", continuous=False, gravity=-10.0, enable_wind=True, wind_power=15.0, turbulence_power=1.5, render_mode="human" if args.test else None)
     else:
         assert False, "Please choose a valid environment: CartPole-v1, Acrobot-v1, LunarLander-v3"
