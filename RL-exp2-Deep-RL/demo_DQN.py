@@ -270,8 +270,8 @@ def main():
     # Create environment
     if args.env == 'CartPole':
         env = gym.make('CartPole-v1', render_mode="human" if args.test else None)
-    elif args.env == "Pendulum-v1":
-        env = gym.make("Pendulum", g=9.81, render_mode="human" if args.test else None)
+    elif args.env == "Pendulum":
+        env = gym.make("Pendulum-v1", g=9.81, render_mode="human" if args.test else None)
     elif args.env == 'Acrobot':
         env = gym.make('Acrobot-v1', render_mode="human" if args.test else None)
     elif args.env == 'MountainCar':
@@ -342,20 +342,14 @@ def main():
                     next_state, reward, done, truncated, info = env.step([con_action])  # observe next state and reward
                     
                 agent.store_transition(Data(state, action, reward, next_state, done))
-                ep_reward += reward
-
+                ep_reward = ep_reward + reward
                 if args.test:
                     env.render()
-
-                if agent.memory_counter >= args.min_capacity and not args.test:
-                    loss = loss + agent.learn(BATCH_SIZE=args.batch_size)
-                    count += 1
 
                 if done or truncated:
                     if args.test:
                         pbar.set_postfix({'Test Reward': round(ep_reward, 3)})
                     else:
-                        # print(f"Train Episode: {i+1} , Reward: {round(ep_reward, 3)}")
                         if ep_reward > best_reward:
                             best_reward = ep_reward
                             early_stopping = 0
@@ -368,6 +362,10 @@ def main():
                         first_done = True
                         print(f"Fist Done at Episode {i}, Reward: {ep_reward}")
                     break
+                
+                if agent.memory_counter >= args.min_capacity and not args.test:
+                    loss = loss + agent.learn(BATCH_SIZE=args.batch_size)
+                    count += 1
                 state = next_state
             pbar.update(1)
             early_stopping += 1
