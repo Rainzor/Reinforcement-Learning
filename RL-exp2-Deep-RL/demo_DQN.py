@@ -350,10 +350,11 @@ def main():
                     if args.test:
                         pbar.set_postfix({'Test Reward': round(ep_reward, 3)})
                     else:
-                        if ep_reward > best_reward:
-                            best_reward = ep_reward
-                            early_stopping = 0
-                            agent.save_train_model("best")
+                        if not first_done or done:
+                            if ep_reward > best_reward:
+                                best_reward = ep_reward
+                                early_stopping = 0
+                                agent.save_train_model("best")
                         pbar.set_postfix({'Loss': loss / count if count != 0 else 0,
                                         'Reward': round(ep_reward, 3),
                                         'Max Q Value': max_q_value,      
