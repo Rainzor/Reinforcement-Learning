@@ -6,7 +6,7 @@
 
 DQN（**deep Q-network**）是指基于深度学习的 **Q-learning** 算法，主要结合了价值函数近似（**value function  approximation**）与神经网络技术(**Neural Networks)**，并采用目标网络和经历回放等方法进行网络的训练。
 
-传统的 Q-learning 算法会使用表格的形式存储状态价值函数 $V(s)$ 或动作价值函数  $Q(s,a)$。但现实任务所面临的状态空间往往是连续的，就不能再使用表格的方式进行存储。因此引入了神经网络（**Q-network**）来近似的拟合上述两种函数，这个方法被称之为价值函数近似（**value function approximation**）。
+传统的 Q-learning 算法会使用表格的形式存储状态价值函数 $V(s)$ 或动作价值函数  $Q(s,a)$。但现实任务所面临的状态空间往往是连续的，就不能再使用表格的方式进行存储。因此引入了神经网络 (**Q-network**)来近似的拟合上述两种函数，这个方法被称之为价值函数近似(**value function approximation**)。
 $$
 Q_{\phi}(s,a)\approx Q_{\pi}(s,a)
 $$
@@ -41,16 +41,19 @@ $$
 #### Classical Q-Learning
 
 在传统的 **Q-Learning** 算法中，利用**时序差分**（temporal difference，TD）的方式更新 Q-Table ：
+
 $$
 Q(s,a)\leftarrow Q(s,a)+\alpha \left[R(s,a,s')+\gamma \max_{a'} Q(s',a')-Q(s,a)\right]
 $$
 
 #### Deep Q-Learning
 
-那么自然地，可以利用神经网络来学习更新动作价值函数  $Q(s,a)$，具体来说，我们定义损失函数：
+那么自然地，可以利用神经网络来学习更新动作价值函数  $Q(s,a)$ ，具体来说，我们定义损失函数：
+
 $$
 loss(\phi)=\frac{1}{2N}\sum_{i=1}^N\left[Q(s_i,a_i|\phi)-(R_i+\gamma\max_{a'}Q(s_i',a'|\phi)\right]
 $$
+
 其中：$N$ 是 Batch Size 大小，通过有**经验放回 (experience replay) ** 采样，提高样本利用效率；$\gamma$ 是对未来值的折扣因子。
 
 这样可以将 Q-learning 扩展到神经网络形式——**深度 Q 网络**（deep Q network，DQN）算法。
@@ -80,10 +83,12 @@ DQN 算法最终更新的目标是让逼近，由于 TD 误差目标本身就包
 为了解决这一问题，DQN 使用了**目标网络**（target network）的思想：如果训练过程中 Q 网络的不断更新会导致目标不断发生改变，那么就暂时先将 TD 目标中的 Q 网络固定住，以固定的频率更新至最新的参数 $\phi$，避免训练的不稳定。
 
 因此，与Q-Learning算法不同的是：需要利用两套 Q 网络，此时损失函数定义为：
+
 $$
 loss(\phi|\phi^-)=\frac{1}{2N}\sum_{i=1}^N\left[Q_{e}(s_i,a_i|\phi)-(R_i+\gamma\max_{a'}Q_{t}(s_i',a'|\phi^-)\right]
 $$
-唯一的不同在于，计算未来的Q值时，采用的另一个网络的参数 $\phi^-$，它是滞后的未更新的参数。
+
+唯一的不同在于，计算未来的Q值时，采用的另一个网络的参数 $\phi^-$ ，它是滞后的未更新的参数。
 
 - Eval-Net：用于实际训练的网络，计算 $Q_e(s_i,a_i|\phi)$ ，在每次进行梯度下降更新时，更新 $\phi$ 的值。
 - Target-Net: 用于计算未来的 $Q(s',a')$ 值，这样可以让更新目标更稳定， $\phi^-$ 以固定的频率 $C$ 更新。
@@ -103,10 +108,12 @@ $$
 #### Double Q-Learning
 
 为了解决这一问题，Double DQN 算法提出利用两个独立训练的神经网络估算 $\max_{a'} Q(s',a')$，具体来说，我们的损失函数定义为：
+
 $$
 loss(\phi|\phi^-)=\frac{1}{2N}\sum_{i=1}^N\left[Q_{e}(s_i,a_i|\phi)-(R_i+\gamma Q_{t}(s_i',a_i'|\phi^-)\right]\\
 a'_i = \arg\max_{a'}Q_e(s_i',a'|\phi)
 $$
+
 即利用一套神经网络 $Q_e$ 的输出选取价值最大的动作 $a’$ ，但在使用该动作 $a'$ 的价值时，用另一套神经网络计 $Q_t$ 算该动作 $a'$ 的价值。这样，即使其中一套神经网络的某个动作存在比较严重的过高估计问题，由于另一套神经网络的存在，这个动作最终使用的 $Q$ 值不会存在很大的过高估计问题。
 
 #### Algorithm
@@ -141,13 +148,17 @@ Dueling DQN 是 DQN 另一种的改进算法，它在传统 DQN 的基础上只�
 ####  Advantage function
 
 在强化学习中，我们将状态动作价值函数 $Q$ 减去状态价值函数 $V$ 的结果定义为优势函数 $A$ ，即
+
 $$
 A(s,a)=Q(s,a)-V(s)
 $$
+
 在同一个状态下，所有动作的优势值之和为 0，因为所有动作的动作价值的期望就是这个状态的状态价值。据此，在 Dueling DQN 中，Q 网络被建模为：
+
 $$
 Q(s,a|\phi,\alpha,\beta) = V(s|\alpha,\phi)+A(s,a|\beta,\phi)
 $$
+
 <img src="assets/640.455bc383.png" alt="img" style="zoom: 67%;" />
 
 将状态价值函数和优势函数分别建模的好处在于：某些情境下智能体只会关注状态的价值，而并不关心不同动作导致的差异，此时将二者分开建模能够使智能体更好地处理与动作关联较小的状态。
@@ -157,13 +168,17 @@ $$
 对于原有的 $Q=V+A$ 的建模存在不唯一性，即：同样的 $Q$ 值，如果将 $V$ 值加上任意大小的常数 $C$ ，再将所有 $A$ 值减去 $C$ ，则得到的 $Q$ 值依然不变，这就导致了训练的不稳定性。
 
 为了解决这一问题，Dueling DQN 强制最优动作的优势函数的实际输出为 0，即：
+
 $$
 Q(s,a|\phi,\alpha,\beta) = V(s|\alpha,\phi)+A(s,a|\beta,\phi)-\max_{\alpha'}A(s,a'|\beta,\phi)
 $$
+
 在实现过程中，我们还可以用平均代替最大化操作：
+
 $$
 Q(s,a|\phi,\alpha,\beta) = V(s|\alpha,\phi)+A(s,a|\beta,\phi)-\frac{1}{|\mathcal{A}|}\sum_{\alpha'}A(s,a'|\beta,\phi)
 $$
+
 虽然它不再满足贝尔曼最优方程，但实际应用时更加稳定。
 
 ```python

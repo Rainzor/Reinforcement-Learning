@@ -46,28 +46,6 @@ BETA = 5  # CQL 中的超参数
 N_ACTIONS = 4  # CQL 中的超参数，对动作空间进行采样的数量
 
 
-# 设置随机种子，便于结果复现
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-
-
-# =========================
-# 创建环境
-# =========================
-env = gym.make(ENV_NAME)  # 移除 seed 参数
-env.reset(seed=SEED)  # 在 reset 时设置随机种子
-env.action_space.seed(SEED)
-
-obs_dim = env.observation_space.shape[0]  # 4
-act_dim = env.action_space.n  # 2 (离散动作: 左 or 右)
-
-
-# =========================
-# 定义网络
-# =========================
-
-
 class PolicyNetwork(nn.Module):
     """
     策略网络：输出对每个离散动作的 log 概率。
@@ -205,11 +183,32 @@ def parse_args():
     parser.add_argument("--tag", type=str, default="CQL", help="tag for the experiment")
     parser.add_argument("--patience", type=int, default=PATIENCE, help="early stopping patience")
     parser.add_argument("--method", type=str, default="SAC", choices=["SAC", "DQL"], help="method to use")
+    parser.add_argument("--seed", type=int, default=SEED, help="random seed")
 
     args = parser.parse_args()
     return args
 
 def main(args):
+    # 设置随机种子，便于结果复现
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+
+
+    # =========================
+    # 创建环境
+    # =========================
+    env = gym.make(ENV_NAME)  # 移除 seed 参数
+    env.reset(seed=args.seed)  # 在 reset 时设置随机种子
+    env.action_space.seed(args.seed)
+
+    obs_dim = env.observation_space.shape[0]  # 4
+    act_dim = env.action_space.n  # 2 (离散动作: 左 or 右)
+
+
+    # =========================
+    # 定义网络
+    # =========================
 
     # 初始化两个Q网络和对应的target网络，以及一个策略网络
     q1 = QNetwork(obs_dim, act_dim)
@@ -288,10 +287,9 @@ def main(args):
         #! CQL 中的额外损失, 用于约束 Q(s,a) 的值
         # 计算 Q1, Q2 对所有动作的值
         if args.beta > 0:
-            action_unif_sample = torch.randint(0, act_dim, (BATCH_SIZE, args.n_actions)).to(device) # [batch_size, N_ACTIONS]
-
-            q1_unif = q1(states).gather(dim=1, index=action_unif_sample) # [batch_size, N_ACTIONS]
-            q2_unif = q2(states).gather(dim=1, index=action_unif_sample) # [batch_size, N_ACTIONS]
+            action_unif = torch.arange(0, act_dim).unsqueeze(0).repeat(BATCH_SIZE, 1).to(device)  # [batch_size, act_dim]
+            q1_unif = q1(states).gather(dim=1, index=action_unif) # [batch_size, N_ACTIONS]
+            q2_unif = q2(states).gather(dim=1, index=action_unif) # [batch_size, N_ACTIONS]
 
             cql1_loss = (torch.logsumexp(q1_unif, dim=1)).mean() - q1_values.mean()
             cql2_loss = (torch.logsumexp(q2_unif, dim=1)).mean() - q2_values.mean()
@@ -468,7 +466,7 @@ def main(args):
                     torch.save(policy.state_dict(), os.path.join(save_dir, "best_policy.pth"))
                     print(f"\nBest policy saved at episode {episode+1}, reward: {best_reward:.2f}")
                     
-            if patience >= args.patience and args.patience > 0:
+            if patience >= args.patience and args.patience > 0 and global_step > 10000:
                 print(f"\nEarly stopping at episode {episode}")
                 break
             if global_step >= MAX_GLOBAL_STEPS:
@@ -482,6 +480,8 @@ def main(args):
     # =========================
     test_reward = evaluate_policy(n_episodes=10)
     print(f"Final evaluation reward (10 episodes): {test_reward:.2f}")
+    writer.add_scalar("reward/test", test_reward, global_step)
+    writer.close()
 
 if __name__ == "__main__":
     args = parse_args()
