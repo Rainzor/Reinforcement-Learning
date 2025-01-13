@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import argparse
 
 # =========================
 # 超参数设置
@@ -26,6 +27,10 @@ UPDATE_AFTER = 1000  # 准备好一定量数据再开始更新
 UPDATE_EVERY = 50  # 每隔多少步更新一次
 SAVE_DATASET_EVERY = 50
 SEED = 42
+DATASET = "datasets"
+replay_buffer_path = None
+
+os.makedirs(DATASET, exist_ok=True)
 
 # 设置随机种子，便于结果复现
 random.seed(SEED)
@@ -70,14 +75,15 @@ class PolicyNetwork(nn.Module):
         如果 deterministic=True，则选取概率最大的动作。
         否则根据概率分布随机采样动作。
         """
-        logits = self.forward(obs)
-        # 获取各动作的概率分布
-        probs = torch.softmax(logits, dim=-1)
-        if deterministic:
-            action = torch.argmax(probs, dim=-1)
-        else:
-            # 按照多项式分布进行随机采样
-            action = torch.multinomial(probs, 1)
+        with torch.no_grad():
+            logits = self.forward(obs)
+            # 获取各动作的概率分布
+            probs = torch.softmax(logits, dim=-1)
+            if deterministic:
+                action = torch.argmax(probs, dim=-1)
+            else:
+                # 按照多项式分布进行随机采样
+                action = torch.multinomial(probs, 1)
         return action.item()
 
     def get_log_probs(self, obs):
@@ -137,6 +143,26 @@ class ReplayBuffer:
             next_states=np.array(next_states, dtype=np.float32),
             dones=np.array(dones, dtype=np.float32),
         )
+        
+    def read(self, filename, load_size=None):
+        """
+        从文件中读取数据到回放池中。
+        """
+        data = np.load(filename)
+        states = data["states"]
+        actions = data["actions"]
+        rewards = data["rewards"]
+        next_states = data["next_states"]
+        dones = data["dones"]
+        if load_size is not None and load_size < len(states):
+            states = states[:load_size]
+            actions = actions[:load_size]
+            rewards = rewards[:load_size]
+            next_states = next_states[:load_size]
+            dones = dones[:load_size]
+        print(f"Load data from {filename}, size: {len(states)}")
+        for i in range(len(states)):
+            self.push(states[i], actions[i], rewards[i], next_states[i], dones[i])
 
     def __len__(self):
         return len(self.buffer)
@@ -160,6 +186,8 @@ q2_optimizer = optim.Adam(q2.parameters(), lr=LR_Q)
 policy_optimizer = optim.Adam(policy.parameters(), lr=LR_POLICY)
 
 replay_buffer = ReplayBuffer(MEMORY_SIZE)
+if replay_buffer_path is not None:
+    replay_buffer.read(replay_buffer_path)
 
 # 将网络移动到 GPU 或 CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -278,7 +306,7 @@ def save_dataset(buffer, episode):
     """
     将当前 ReplayBuffer 数据保存为数据集文件。
     """
-    save_dir = "datasets"
+    save_dir = DATASET
     os.makedirs(save_dir, exist_ok=True)
     filename = os.path.join(save_dir, f"dataset_episode_{episode}.npz")
     buffer.save(filename)
@@ -289,10 +317,11 @@ def save_dataset(buffer, episode):
 # 训练循环
 # =========================
 global_step = 0
+best_reward = -np.inf
 for episode in range(MAX_EPISODES):
     state, _ = env.reset()
     episode_reward = 0
-
+    done = False
     for t in range(MAX_STEPS):
         global_step += 1
 
@@ -325,6 +354,9 @@ for episode in range(MAX_EPISODES):
     if (episode + 1) % 10 == 0:
         eval_reward = evaluate_policy(n_episodes=3)
         print(f"Episode: {episode+1}, Step: {global_step}, TrainEpisodeReward: {episode_reward:.2f}, EvalReward: {eval_reward:.2f}")
+        if eval_reward > best_reward:
+            best_reward = eval_reward
+            torch.save(policy.state_dict(), os.path.join(DATASET, "best_policy.pth"))
 
 
 # =========================
