@@ -32,24 +32,28 @@
 ### 2.1 Q-Learning
 
 在 Q-Learning 算法中，$Q$ 的更新方程写成：
+
 $$
 \hat Q^{k+1}\leftarrow \arg \min_Q \mathbb E_{(s,a,s')\sim \mathcal D}\left[\left(Q(s,a)-\mathcal B^\pi \hat Q^{k}(s,a)\right)^2\right]
 $$
+
 其中，$\mathcal D$ 是训练数据集，$\mathcal B^\pi$ 是基于策略 $\pi$ 的 Bellman operator：
+
 $$
 \mathcal B^\pi Q(s,a) = r(s,a) +\gamma \mathbb E_{a'\sim \pi(a|s')} (Q(s',a')), \quad s'= P(s,a)
 $$
+
 这里假定了 $s'$ 是由 $P(s,a)$ 唯一确定的，$\gamma$ 是折扣因子
 
 ### 2.2 Conservation Regularization
 
 对于给定数据集 $\mathcal D $ 的情况下，一般 $(s,a,s')$ 都可以通过 $\mathcal D $ 采样获取，但 $a'$ 是基于策略 $\pi$ 生成的，会导致新的数据项 $(s,a,s',a')$ 可能不在 $\mathcal D$ 中，导致更新 Q 值出现过高的估计。所以引入正则项限制 Q 值：
+
 $$
-\begin{aligned}
 \hat Q^{k+1}\leftarrow \arg \min_Q\left\{ \beta\cdot\left[\mathbb E_{s\sim\mathcal D, a\sim \mu(a|s)}Q(s,a)-\mathbb E_{s\sim \mathcal D, a\sim \hat \pi(a|s)}Q(s,a)\right]\\
 + \frac{1}{2} \cdot \mathbb E_{(s,a,s')\sim \mathcal D}\left[\left(Q(s,a)-\mathcal B^\pi \hat Q^{k}(s,a)\right)^2\right]\right\}
-\end{aligned}
 $$
+
 其中，
 
 - $\beta$ 为正则项系数，在约束程度和价值估计准确程度的 trade-off 做平衡；
@@ -67,10 +71,8 @@ $$
 因此我们得到：
 
 $$
-\begin{aligned}
 \hat Q^{k+1}\leftarrow \arg \min_Q\left\{ \max_{\mu}\beta\cdot\left[\mathbb E_{s\sim\mathcal D, a\sim \mu(a|s)}Q(s,a)-\mathbb E_{s\sim \mathcal D, a\sim \hat \pi(a|s)}Q(s,a)\right]\\
 + \frac{1}{2} \cdot \mathbb E_{(s,a,s')\sim \mathcal D}\left[\left(Q(s,a)-\mathcal B^\pi \hat Q^{k}(s,a)\right)^2\right]\right\}
-\end{aligned}
 $$
 
 对于函数 $\mu$ 来说，这一个变分问题 (variational problem) 。为了避免 $\mu$ 方差过大，我们采用均匀分布 $\rho(a|s)=\mathcal U(a)$ 作为 $\mu$ 的 先验假设，引入 $KL$ 散度约束，此时变分问题为：
@@ -82,10 +84,8 @@ $$
 上式得到的最大值为：
 
 $$
-\begin{aligned}
 \max_\mu J(\mu) &= \mathbb E_{s\sim \mathcal D}\left[\log\int_\mathcal A \exp(Q(s,a)) d\mathcal A\right]\\
 &=\mathbb E_{s\sim \mathcal D}\left[\log\sum_a \exp(Q(s,a))\right]
-\end{aligned}
 $$
 
 ### 2.4  CQL
@@ -93,10 +93,8 @@ $$
 综合以上，我们得到最终的迭代方法：
 
 $$
-\begin{aligned}
 \hat Q^{k+1}\leftarrow \arg \min_Q \left\{\beta\cdot \mathbb E_{s\sim \mathcal D}\left[\log\sum_a \exp(Q(s,a))-\mathbb E_{ a\sim \hat \pi(a|s)}Q(s,a)\right]\\
 + \frac{1}{2} \cdot \mathbb E_{(s,a,s')\sim \mathcal D}\left[\left(Q(s,a)-\mathcal B^\pi \hat Q^{k}(s,a)\right)^2\right]\right\}
-\end{aligned}
 $$
 
 上式针对的是离散动作空间 $\mathcal A$ 下的表达式，不含有 $\mu$ .
