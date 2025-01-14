@@ -34,10 +34,10 @@ SAVE_DATASET_EVERY = 50
 EPSILON = 0.01  # epsilon-greedy
 SEED = 42
 PATIENCE = 50  # 早停等待轮数
-DATASET = "output"
-replay_buffer_path = "datasets/dataset_episode_350.npz"
+OUTPUT = "outputs"
+DATASET_SIZE = 8192
 
-os.makedirs(DATASET, exist_ok=True)
+os.makedirs(OUTPUT, exist_ok=True)
 
 # =========================
 # CQL 参数
@@ -178,11 +178,12 @@ def parse_args():
     parser.add_argument("--epochs",'-n', type=int, default=MAX_EPISODES, help="number of epochs")
     parser.add_argument("--batch_size", type=int, default=BATCH_SIZE, help="batch size")    
     parser.add_argument("--beta", type=float, default=BETA, help="CQL hyperparameter")
+    parser.add_argument("--gamma", type=float, default=GAMMA, help="discount factor")
     parser.add_argument("--n_actions", type=int, default=N_ACTIONS, help="CQL hyperparameter")
 
     parser.add_argument("--tag", type=str, default="CQL", help="tag for the experiment")
     parser.add_argument("--patience", type=int, default=PATIENCE, help="early stopping patience")
-    parser.add_argument("--method", type=str, default="SAC", choices=["SAC", "DQL"], help="method to use")
+    parser.add_argument("--method", type=str, default="DQL", choices=["SAC", "DQL"], help="method to use")
     parser.add_argument("--seed", type=int, default=SEED, help="random seed")
 
     args = parser.parse_args()
@@ -257,7 +258,7 @@ def main(args):
         SAC 算法
         """
         states, actions, rewards, next_states, dones = data
-                # --------------------------
+        # --------------------------
         # 1) 计算目标 Q 值
         # --------------------------
         with torch.no_grad():
@@ -273,7 +274,7 @@ def main(args):
             # 对离散空间，目标值 = r + γ * E_{a' ~ π}[ Q(s',a') - α * log π(a'|s') ]
             # 其中 E_{a' ~ π}[·] 可以用 sum(prob * ·)
             V_next = (next_probs * (min_q_next - ALPHA * next_log_probs)).sum(dim=-1, keepdim=True)
-            target_q = rewards + GAMMA * (1 - dones) * V_next
+            target_q = rewards + args.gamma * (1 - dones) * V_next
 
         # --------------------------
         # 2) 更新 Q1, Q2
@@ -287,7 +288,7 @@ def main(args):
         #! CQL 中的额外损失, 用于约束 Q(s,a) 的值
         # 计算 Q1, Q2 对所有动作的值
         if args.beta > 0:
-            action_unif = torch.arange(0, act_dim).unsqueeze(0).repeat(BATCH_SIZE, 1).to(device)  # [batch_size, act_dim]
+            action_unif = torch.randint(0, act_dim, (BATCH_SIZE, args.n_actions)).to(device)
             q1_unif = q1(states).gather(dim=1, index=action_unif) # [batch_size, N_ACTIONS]
             q2_unif = q2(states).gather(dim=1, index=action_unif) # [batch_size, N_ACTIONS]
 
@@ -343,13 +344,16 @@ def main(args):
         with torch.no_grad():
             actions_eval = q1(next_states).argmax(dim=1).unsqueeze(-1)  # [batch_size, 1]
             q_next = q1_target(next_states).gather(dim=1, index=actions_eval)  # [batch_size, 1]
-            q_target = rewards + GAMMA * q_next * (1 - dones)
+            q_target = rewards + args.gamma * q_next * (1 - dones)
         
         loss = nn.MSELoss()(q_eval, q_target)
-
+        
+        #! CQL 中的额外损失, 用于约束 Q(s,a) 的值
         if args.beta > 0:
-            action_unif_sample = torch.randint(0, act_dim, (BATCH_SIZE, args.n_actions)).to(device)
-            q1_unif = q1(states).gather(dim=1, index=action_unif_sample)
+            # action_unif = torch.arange(0, act_dim)\
+            #                 .unsqueeze(0).repeat(BATCH_SIZE, 1).to(device)  # [batch_size, act_dim]
+            action_unif = torch.randint(0, act_dim, (BATCH_SIZE, args.n_actions)).to(device)
+            q1_unif = q1(states).gather(dim=1, index=action_unif)
 
             cql1_loss = (torch.logsumexp(q1_unif, dim=1)).mean() - q_eval.mean()
 
@@ -415,7 +419,7 @@ def main(args):
     global_step = 0
     best_reward = -np.inf
     timenow = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime(time.time()))
-    save_dir = os.path.join(DATASET, f"{args.method}_{args.tag}_{timenow}")
+    save_dir = os.path.join(OUTPUT, f"{args.method}_{args.tag}_{timenow}")
     os.makedirs(save_dir, exist_ok=True)
     writer = SummaryWriter(log_dir=save_dir)
     patience = 0
