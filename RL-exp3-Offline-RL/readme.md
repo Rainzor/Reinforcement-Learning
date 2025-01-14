@@ -59,21 +59,28 @@ $$
 ### 2.3 Choose $\mu$
 
 在上式中，当采取 $\mu=\pi$ 的方式来采样，可以确保 $\mathbb E_{\pi(a|s)}[Q(s,a)]\le V^\pi(s)$，但是在训练迭代时交替计算代价太高，我们考虑到 $\pi$ 的合理近似定义：
+
 $$
 \pi \approx \arg \max_{\mu} \mathbb E_{s\sim D, a\sim\mu(a|s)}[Q(s,a)]
 $$
+
 因此我们得到：
+
 $$
 \begin{aligned}
 \hat Q^{k+1}\leftarrow \arg \min_Q\left\{ \max_{\mu}\beta\cdot\left[\mathbb E_{s\sim\mathcal D, a\sim \mu(a|s)}Q(s,a)-\mathbb E_{s\sim \mathcal D, a\sim \hat \pi(a|s)}Q(s,a)\right]\\
 + \frac{1}{2} \cdot \mathbb E_{(s,a,s')\sim \mathcal D}\left[\left(Q(s,a)-\mathcal B^\pi \hat Q^{k}(s,a)\right)^2\right]\right\}
 \end{aligned}
 $$
+
 对于函数 $\mu$ 来说，这一个变分问题 (variational problem) 。为了避免 $\mu$ 方差过大，我们采用均匀分布 $\rho(a|s)=\mathcal U(a)$ 作为 $\mu$ 的 先验假设，引入 $KL$ 散度约束，此时变分问题为：
+
 $$
 \max_\mu J(\mu) = \max_\mu \mathbb E_{s\sim D, a\sim \mu(a|s)}[Q(s,a)]-D_{KL}[\mu(a|s),\mathcal U(a)]\quad s.t \int \mu da=1,\mu(a|s)\ge0
 $$
+
 上式得到的最大值为：
+
 $$
 \begin{aligned}
 \max_\mu J(\mu) &= \mathbb E_{s\sim \mathcal D}\left[\log\int_\mathcal A \exp(Q(s,a)) d\mathcal A\right]\\
@@ -84,12 +91,14 @@ $$
 ### 2.4  CQL
 
 综合以上，我们得到最终的迭代方法：
+
 $$
 \begin{aligned}
 \hat Q^{k+1}\leftarrow \arg \min_Q \left\{\beta\cdot \mathbb E_{s\sim \mathcal D}\left[\log\sum_a \exp(Q(s,a))-\mathbb E_{ a\sim \hat \pi(a|s)}Q(s,a)\right]\\
 + \frac{1}{2} \cdot \mathbb E_{(s,a,s')\sim \mathcal D}\left[\left(Q(s,a)-\mathcal B^\pi \hat Q^{k}(s,a)\right)^2\right]\right\}
 \end{aligned}
 $$
+
 上式针对的是离散动作空间 $\mathcal A$ 下的表达式，不含有 $\mu$ .
 
 ### 2.5 Code
