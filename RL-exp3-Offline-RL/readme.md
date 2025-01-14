@@ -50,7 +50,7 @@ $$
 对于给定数据集 $\mathcal D $ 的情况下，一般 $(s,a,s')$ 都可以通过 $\mathcal D $ 采样获取，但 $a'$ 是基于策略 $\pi$ 生成的，会导致新的数据项 $(s,a,s',a')$ 可能不在 $\mathcal D$ 中，导致更新 Q 值出现过高的估计。所以引入正则项限制 Q 值：
 
 $$
-\hat Q^{k+1}\leftarrow \arg \min_Q\left\{ \beta\cdot\left[\mathbb E_{s\sim\mathcal D, a\sim \mu(a|s)}Q(s,a)-\mathbb E_{s\sim \mathcal D, a\sim \hat \pi(a|s)}Q(s,a)\right]\frac{1}{2} \cdot \mathbb E_{(s,a,s')\sim \mathcal D}\left[\left(Q(s,a)-\mathcal B^\pi \hat Q^{k}(s,a)\right)^2\right]\right\}
+\hat Q^{k+1}\leftarrow \arg \min_Q\left\{ \beta\cdot\left[\mathbb E_{s\sim\mathcal D, a\sim \mu(a|s)}Q(s,a)-\mathbb E_{s\sim \mathcal D, a\sim \hat \pi(a|s)}Q(s,a)\right]+\frac{1}{2} \cdot \mathbb E_{(s,a,s')\sim \mathcal D}\left[\left(Q(s,a)-\mathcal B^\pi \hat Q^{k}(s,a)\right)^2\right]\right\}
 $$
 
 其中，
@@ -70,7 +70,7 @@ $$
 因此我们得到：
 
 $$
-\hat Q^{k+1}\leftarrow \arg \min_Q\left\{ \max_{\mu}\beta\cdot\left[\mathbb E_{s\sim\mathcal D, a\sim \mu(a|s)}Q(s,a)-\mathbb E_{s\sim \mathcal D, a\sim \hat \pi(a|s)}Q(s,a)\right]\frac{1}{2} \cdot \mathbb E_{(s,a,s')\sim \mathcal D}\left[\left(Q(s,a)-\mathcal B^\pi \hat Q^{k}(s,a)\right)^2\right]\right\}
+\hat Q^{k+1}\leftarrow \arg \min_Q\left\{ \max_{\mu}\beta\cdot\left[\mathbb E_{s\sim\mathcal D, a\sim \mu(a|s)}Q(s,a)-\mathbb E_{s\sim \mathcal D, a\sim \hat \pi(a|s)}Q(s,a)\right]+\frac{1}{2} \cdot \mathbb E_{(s,a,s')\sim \mathcal D}\left[\left(Q(s,a)-\mathcal B^\pi \hat Q^{k}(s,a)\right)^2\right]\right\}
 $$
 
 对于函数 $\mu$ 来说，这一个变分问题 (variational problem) 。为了避免 $\mu$ 方差过大，我们采用均匀分布 $\rho(a|s)=\mathcal U(a)$ 作为 $\mu$ 的 先验假设，引入 $KL$ 散度约束，此时变分问题为：
