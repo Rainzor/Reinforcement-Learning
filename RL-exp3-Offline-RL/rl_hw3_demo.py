@@ -186,8 +186,6 @@ q2_optimizer = optim.Adam(q2.parameters(), lr=LR_Q)
 policy_optimizer = optim.Adam(policy.parameters(), lr=LR_POLICY)
 
 replay_buffer = ReplayBuffer(MEMORY_SIZE)
-if replay_buffer_path is not None:
-    replay_buffer.read(replay_buffer_path)
 
 # 将网络移动到 GPU 或 CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

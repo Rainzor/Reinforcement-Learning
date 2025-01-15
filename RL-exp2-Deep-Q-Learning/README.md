@@ -4,7 +4,7 @@
 
 ## 1. Overview
 
-DQN（**deep Q-network**）是指基于深度学习的 **Q-learning** 算法，主要结合了价值函数近似（**value function  approximation**）与神经网络技术(**Neural Networks)**，并采用目标网络和经历回放等方法进行网络的训练。
+DQN（**deep Q-network**）是指基于深度学习的 **Q-learning** 算法，主要结合了价值函数近似（**value function  approximation**）与神经网络技术(**Neural Networks)**，并采用目标网络 (**Target Network**) 和经验回放 (**Experience replay**) 等方法进行网络的训练。
 
 传统的 Q-learning 算法会使用表格的形式存储状态价值函数 $V(s)$ 或动作价值函数  $Q(s,a)$。但现实任务所面临的状态空间往往是连续的，就不能再使用表格的方式进行存储。因此引入了神经网络 (**Q-network**)来近似的拟合上述两种函数，这个方法被称之为价值函数近似(**value function approximation**)。
 $$
@@ -76,11 +76,11 @@ class Qnet(nn.Module):
 
 #### Target Network
 
-由于 DQN 是**离线策略算法**，因此我们在收集数据的时候可以使用一个 $\epsilon-greed$ 策略来平衡探索与利用，将收集到的数据存储起来，在后续的训练中使用。
+由于 DQN 是**离线策略算法 (off-policy)**，因此我们在收集数据的时候可以使用一个 $\epsilon-greed$ 策略来平衡**探索与利用** (**Exploration vs Exploitation**) ，将收集到的数据存储起来，在后续的训练中使用。
 
 DQN 算法最终更新的目标是让逼近，由于 TD 误差目标本身就包含神经网络的输出，因此在更新网络参数的同时目标也在不断地改变，这非常容易造成神经网络训练的不稳定性。
 
-为了解决这一问题，DQN 使用了**目标网络**（target network）的思想：如果训练过程中 Q 网络的不断更新会导致目标不断发生改变，那么就暂时先将 TD 目标中的 Q 网络固定住，以固定的频率更新至最新的参数 $\phi$，避免训练的不稳定。
+为了解决这一问题，DQN 使用了**目标网络**（target network）的思想：如果训练过程中 Q 网络的不断更新会导致目标不断发生改变，那么就**暂时**先将 TD 目标中的 Q 网络固定住，以固定的频率更新至最新的参数 $\phi$，避免训练的不稳定。
 
 因此，与Q-Learning算法不同的是：需要利用两套 Q 网络，此时损失函数定义为：
 
@@ -101,7 +101,7 @@ $$
 
 #### Overestimation
 
-虽然 DQN 首先使用神经网络来训练 Q-Function，但也同样带来了 Q-Learning固有的问题：对 Q-Function 的过高估计（**overestimation**）。
+虽然 DQN 使用神经网络来训练 Q-Function，但也同样带来了 Q-Learning固有的问题：对 Q-Function 的高估 (**overestimation**)。
 
 具体来说，overestimation 问题是 agent  在任何给定状态下总是选择非最优动作，只是因为它具有最大 $Q$ 值。然而， Agent  一开始对环境一无所知，它需要首先估计 $Q(s',a')$，以选择动作 $a'$ 最大化 $Q$ 值。但这样的 $Q$ 值有很多噪声，我们永远无法确定具有最大期望 Q 值的动作 $a'$ 是否真的是最好的。
 
@@ -117,6 +117,8 @@ $$
 即利用一套神经网络 $Q_e$ 的输出选取价值最大的动作 $a’$ ，但在使用该动作 $a'$ 的价值时，用另一套神经网络计 $Q_t$ 算该动作 $a'$ 的价值。这样，即使其中一套神经网络的某个动作存在比较严重的过高估计问题，由于另一套神经网络的存在，这个动作最终使用的 $Q$ 值不会存在很大的过高估计问题。
 
 #### Algorithm
+
+在实际代码中，我们使用 `eval_net` 和 `target_net` 代表两个网络，并没有创建两个 Q-Network。
 
 <img src="assets/image-20241226210645174.png" alt="image-20241226210645174" style="zoom:50%;" />
 
