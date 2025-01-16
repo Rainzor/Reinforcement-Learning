@@ -11,6 +11,7 @@ import argparse
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 from dataclasses import dataclass
+import time
 
 # =========================
 # 超参数设置
@@ -19,12 +20,14 @@ ENV_NAME = "CartPole-v1"
 GAMMA = 0.99  # 折扣因子
 TAU = 0.01  # 软更新系数
 LR_Q = 3e-4  # Q 网络学习率
+LR_V = 1e-3  # V 网络学习率
 LR_POLICY = 3e-4  # 策略网络学习率
 ALPHA = 0.2  # SAC 温度系数 (决定了熵项的比重)
 BATCH_SIZE = 64  # 批大小
 MEMORY_SIZE = 100000  # Replay Buffer 大小
 MAX_EPISODES = 400  # 训练轮数
 MAX_STEPS = 500  # 每个episode最大步数
+MAX_GLOBAL_STEPS = 80000  # 最大训练步数
 START_STEPS = 1000  # 随机探索步数
 UPDATE_AFTER = 1000  # 准备好一定量数据再开始更新
 UPDATE_EVERY = 50  # 每隔多少步更新一次
@@ -36,16 +39,17 @@ OUTPUT = "outputs"  # 模型和数据输出目录
 @dataclass
 class TrainConfig:
     env_name: str = ENV_NAME
-    seed: int = SEED
     batch_size: int = BATCH_SIZE
     memory_size: int = MEMORY_SIZE
     max_episodes: int = MAX_EPISODES
     max_steps: int = MAX_STEPS
+    max_global_steps: int = MAX_GLOBAL_STEPS
     start_steps: int = START_STEPS
     update_after: int = UPDATE_AFTER
     update_every: int = UPDATE_EVERY
     save_dataset_every: int = SAVE_DATASET_EVERY
     output: str = OUTPUT
+    on_policy: bool = False
 
 @dataclass
 class ModelConfig:
@@ -56,6 +60,7 @@ class ModelConfig:
     tau: float = TAU
     alpha: float = ALPHA
     lr_q: float = LR_Q
+    lr_v: float = LR_V
     lr_policy: float = LR_POLICY
 
 
@@ -71,13 +76,13 @@ def soft_update(net, target_net, tau=TAU):
 # =========================
 
 
-class PolicyNetwork(nn.Module):
+class PolicyNet(nn.Module):
     """
     策略网络：输出对每个离散动作的 log 概率。
     """
 
     def __init__(self, obs_dim, act_dim, hidden_dim=128):
-        super(PolicyNetwork, self).__init__()
+        super(PolicyNet, self).__init__()
         self.net = nn.Sequential(
                         nn.Linear(obs_dim, hidden_dim),
                         nn.ReLU(), 
@@ -126,7 +131,12 @@ class QNetwork(nn.Module):
 
     def __init__(self, obs_dim, act_dim, hidden_dim=128):
         super(QNetwork, self).__init__()
-        self.net = nn.Sequential(nn.Linear(obs_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, hidden_dim), nn.ReLU(), nn.Linear(hidden_dim, act_dim))
+        self.net = nn.Sequential(
+                            nn.Linear(obs_dim, hidden_dim), 
+                            nn.ReLU(), 
+                            nn.Linear(hidden_dim, hidden_dim), 
+                            nn.ReLU(), 
+                            nn.Linear(hidden_dim, act_dim))
         self.num_actions = act_dim
 
     def forward(self, obs):
@@ -151,6 +161,75 @@ class QNetwork(nn.Module):
             else:
                 action = np.random.randint(0, self.num_actions)  # Random integer between 0 and num_actions - 1
         return action
+    
+    def get_log_probs(self, obs):
+        """
+        给定一个batch状态，返回动作的 log_probs 和对应的概率分布。
+        log_probs: [batch_size, act_dim]
+        probs:     [batch_size, act_dim]
+        """
+        logits = self.forward(obs)
+        log_probs = torch.log_softmax(logits, dim=-1)
+        probs = torch.softmax(logits, dim=-1)
+        return log_probs, probs
+
+class ValueNet(nn.Module):
+    """
+    值网络：V(s)的预测。
+    """
+
+    def __init__(self, obs_dim, hidden_dim=128):
+        super(ValueNet, self).__init__()
+        self.net = nn.Sequential(
+                        nn.Linear(obs_dim, hidden_dim), 
+                        nn.ReLU(), 
+                        nn.Linear(hidden_dim, hidden_dim), 
+                        nn.ReLU(), 
+                        nn.Linear(hidden_dim, 1))
+
+    def forward(self, obs):
+        """
+        返回 V(s) 的预测值
+        """
+        return self.net(obs)
+
+class ActorCritic(nn.Module):
+    def __init__(self, model_config):
+        super(ActorCritic, self).__init__()
+        self.model_config = model_config
+        self.actor = PolicyNet(model_config.obs_dim, model_config.act_dim, model_config.hidden_dim)
+        self.critic = ValueNet(model_config.obs_dim, model_config.hidden_dim)
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=model_config.lr_policy)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=model_config.lr_v)
+    
+    def forward(self, obs):
+        return self.actor(obs)
+
+    def update(self, transition):
+        states, actions, rewards, next_states, dones = transition
+        
+        td_target = rewards + self.model_config.gamma * (1 - dones) * self.critic(next_states)
+        
+        # Actor Loss
+        td_error = td_target - self.critic(states)
+        log_probs, probs = self.actor.get_log_probs(states)
+        log_probs = log_probs.gather(dim=1, index=actions)
+        actor_loss = -(log_probs * td_error.detach()).mean()
+
+        # Critic Loss
+        critic_loss = nn.MSELoss()(self.critic(states), td_target.detach())
+
+        self.actor_optimizer.zero_grad()
+        self.critic_optimizer.zero_grad()
+
+        actor_loss.backward()
+        critic_loss.backward()
+
+        self.actor_optimizer.step()
+        self.critic_optimizer.step()
+
+    def take_action(self, obs, deterministic=False):
+        return self.actor.take_action(obs, deterministic=deterministic)
 
 class SAC(nn.Module):
     def __init__(self, model_config):
@@ -160,7 +239,7 @@ class SAC(nn.Module):
         self.q2 = QNetwork(model_config.obs_dim, model_config.act_dim, model_config.hidden_dim)
         self.q1_target = QNetwork(model_config.obs_dim, model_config.act_dim, model_config.hidden_dim)
         self.q2_target = QNetwork(model_config.obs_dim, model_config.act_dim, model_config.hidden_dim)
-        self.policy = PolicyNetwork(model_config.obs_dim, model_config.act_dim, model_config.hidden_dim)
+        self.policy = PolicyNet(model_config.obs_dim, model_config.act_dim, model_config.hidden_dim)
 
         # 拷贝参数到 target网络
         self.q1_target.load_state_dict(self.q1.state_dict())
@@ -172,10 +251,10 @@ class SAC(nn.Module):
         self.policy_optimizer = optim.Adam(self.policy.parameters(), lr=model_config.lr_policy)
 
     def forward(self, obs):
-        pass
+        return self.policy(obs)
 
-    def update(self, data):
-        states, actions, rewards, next_states, dones = data
+    def update(self, transition):
+        states, actions, rewards, next_states, dones = transition
         with torch.no_grad():
             # 下一个状态的 log_probs, probs
             next_log_probs, next_probs = self.policy.get_log_probs(next_states)
@@ -280,20 +359,6 @@ class Trainer:
         self.writer = writer
         self.global_step = 0
 
-
-    def train_step(self):
-        if len(self.replay_buffer) < self.config.batch_size:
-            return
-        
-        states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.config.batch_size)
-        states = torch.FloatTensor(states).to(self.device)
-        actions = torch.LongTensor(actions).unsqueeze(-1).to(self.device)
-        rewards = torch.FloatTensor(rewards).unsqueeze(-1).to(self.device)
-        next_states = torch.FloatTensor(next_states).to(self.device)
-        dones = torch.FloatTensor(dones).unsqueeze(-1).to(self.device)
-
-        self.agent.update((states, actions, rewards, next_states, dones))
-    
     def evaluate(self, n_episodes=3):
         eval_reward_list = []
         for _ in range(n_episodes):
@@ -310,10 +375,56 @@ class Trainer:
                 state = next_state
             eval_reward_list.append(eval_reward)
         reward = np.mean(eval_reward_list)
-        self.writer.add_scalar("Reward/eval", reward, self.global_step)
-        return reward
-    
-    def train(self):
+        return reward    
+   
+    def train(self, on_policy=True):
+        if on_policy:
+            return self._train_on_policy()
+        else:
+            return self._train_off_policy()
+ 
+    def train_step(self, transition):
+        states = torch.FloatTensor(transition['states']).to(self.device)
+        actions = torch.LongTensor(transition['actions']).unsqueeze(-1).to(self.device)
+        rewards = torch.FloatTensor(transition['rewards']).unsqueeze(-1).to(self.device)
+        next_states = torch.FloatTensor(transition['next_states']).to(self.device)
+        dones = torch.FloatTensor(transition['dones']).unsqueeze(-1).to(self.device)
+
+        self.agent.update((states, actions, rewards, next_states, dones))
+
+    def _train_on_policy(self):
+        state, _ = self.env.reset()
+        train_reward = 0
+        done = False
+        transition_dict = {'states': [], 'actions': [], 'next_states': [], 'rewards': [], 'dones': []}
+
+        for t in range(self.config.max_steps):
+            self.global_step += 1
+
+            # 在前 START_STEPS 步，随机选择动作
+            if self.global_step < self.config.start_steps:
+                action = self.env.action_space.sample()
+            else:
+                state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+                action = self.agent.take_action(state_tensor, deterministic=False)
+
+            next_state, reward, done, _, _ = self.env.step(action)
+            transition_dict['states'].append(state)
+            transition_dict['actions'].append(action)
+            transition_dict['next_states'].append(next_state)
+            transition_dict['rewards'].append(reward)
+            transition_dict['dones'].append(done)
+
+            state = next_state
+            train_reward += reward
+
+            if done:
+                break
+        # 更新网络 ON-POLICY
+        self.agent.update(transition_dict)
+        return train_reward
+
+    def _train_off_policy(self):
         state, _ = self.env.reset()
         train_reward = 0
         done = False
@@ -333,89 +444,80 @@ class Trainer:
             state = next_state
             train_reward += reward
 
-            # 在一定步数之后，开始更新网络
+            # 在一定步数之后，开始更新网络, OFF-POLICY
             if (self.global_step >= self.config.update_after) and \
                 (self.global_step % self.config.update_every == 0):
                 for _ in range(self.config.update_every):
-                    self.train_step()
-
+                    b_s, b_a, b_r, b_ns, b_d = self.replay_buffer.sample(self.config.batch_size)
+                    transition = {'states': b_s, 'actions': b_a, 'rewards': b_r, 'next_states': b_ns, 'dones': b_d}
+                    self.train_step(transition)
             if done:
-                break
-        self.writer.add_scalar("Reward/train", train_reward, self.global_step)
-        
+                break        
         return train_reward
-        
-def train_on_policy_agent(env, agent, num_episodes):
-    return_list = []
-    for i in range(10):
-        with tqdm(total=int(num_episodes/10), desc='Iteration %d' % i) as pbar:
-            for i_episode in range(int(num_episodes/10)):
-                episode_return = 0
-                transition_dict = {'states': [], 'actions': [], 'next_states': [], 'rewards': [], 'dones': []}
-                state = env.reset()
-                done = False
-                while not done:
-                    action = agent.take_action(state)
-                    next_state, reward, done, _ = env.step(action)
-                    transition_dict['states'].append(state)
-                    transition_dict['actions'].append(action)
-                    transition_dict['next_states'].append(next_state)
-                    transition_dict['rewards'].append(reward)
-                    transition_dict['dones'].append(done)
-                    state = next_state
-                    episode_return += reward
-                return_list.append(episode_return)
-                agent.update(transition_dict)
-                if (i_episode+1) % 10 == 0:
-                    pbar.set_postfix({'episode': '%d' % (num_episodes/10 * i + i_episode+1), 'return': '%.3f' % np.mean(return_list[-10:])})
-                pbar.update(1)
-    return return_list
 
-def train_off_policy_agent(env, agent, num_episodes, replay_buffer, minimal_size, batch_size):
-    return_list = []
-    for i in range(10):
-        with tqdm(total=int(num_episodes/10), desc='Iteration %d' % i) as pbar:
-            for i_episode in range(int(num_episodes/10)):
-                episode_return = 0
-                state = env.reset()
-                done = False
-                while not done:
-                    action = agent.take_action(state)
-                    next_state, reward, done, _ = env.step(action)
-                    replay_buffer.add(state, action, reward, next_state, done)
-                    state = next_state
-                    episode_return += reward
-                    if replay_buffer.size() > minimal_size:
-                        b_s, b_a, b_r, b_ns, b_d = replay_buffer.sample(batch_size)
-                        transition_dict = {'states': b_s, 'actions': b_a, 'next_states': b_ns, 'rewards': b_r, 'dones': b_d}
-                        agent.update(transition_dict)
-                return_list.append(episode_return)
-                if (i_episode+1) % 10 == 0:
-                    pbar.set_postfix({'episode': '%d' % (num_episodes/10 * i + i_episode+1), 'return': '%.3f' % np.mean(return_list[-10:])})
-                pbar.update(1)
-    return return_list
+def parse_args():
+    parser = argparse.ArgumentParser(description="Actor-Critic RL")
 
+    parser.add_argument("--model", '-m',type=str, default="sac", help="The name of the model.")
+    parser.add_argument("--env", '-e', type=str, default=ENV_NAME, help="The name of the environment.")
+    parser.add_argument("--epochs", '-n', type=int, default=MAX_EPISODES, help="The number of training epochs.")
+    parser.add_argument("--max_steps", '-s', type=int, default=MAX_STEPS, help="The maximum number of steps in each episode.")
 
+    parser.add_argument("--output", '-o', type=str, default=OUTPUT, help="The output directory.")
+    parser.add_argument("--lr_q", type=float, default=LR_Q, help="The learning rate of Q network.")
+    parser.add_argument("--lr_v", type=float, default=LR_V, help="The learning rate of V network.")
+    parser.add_argument("--lr_p", type=float, default=LR_POLICY, help="The learning rate of policy network.")
 
-def main():
+    parser.add_argument("--tag", type=str, default=None, help="The tag of the experiment.")
+
+    parser.add_argument("--seed", type=int, default=SEED, help="Random seed.")
+    parser.add_argument("--batch_size", type=int, default=BATCH_SIZE, help="The batch size.")
+
+    args = parser.parse_args()
+    return args
+
+def main(args):
 
     # 设置随机种子，便于结果复现
-    random.seed(SEED)
-    np.random.seed(SEED)
-    torch.manual_seed(SEED)
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
 
-    env_name = ENV_NAME
+    env_name = args.env
     env = gym.make(env_name)
-    env.reset(seed=SEED)
-    env.action_space.seed(SEED)
+    env.reset(seed=args.seed)
+    env.action_space.seed(args.seed)
     
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.n
-    
-    train_config = TrainConfig()
+    timenow = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
+    if args.tag is not None:
+        output_dir = os.path.join(args.output, f"{env_name}-{args.model}-{args.tag}",timenow)
+    else:
+        output_dir = os.path.join(args.output, f"{env_name}-{args.model}", timenow)
+
+    os.makedirs(output_dir, exist_ok=True)
+    train_config = TrainConfig(
+        env_name=env_name,
+        batch_size=args.batch_size,
+        max_episodes=args.epochs,
+        output=output_dir
+    )
     model_config = ModelConfig(obs_dim=state_dim, act_dim=action_dim)
-    agent = SAC(model_config)
-    writer = SummaryWriter( "logs")
+    if args.model == "sac":
+        agent = SAC(model_config)
+        train_config.on_policy = False
+        print("Using SAC Agent")
+    elif args.model == "ac":
+        agent = ActorCritic(model_config)
+        train_config.on_policy = True
+        print("Using Actor-Critic Agent")
+    else:
+        raise ValueError(f"Unknown model {args.model}")
+
+    timenow = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
+    log_dir = os.path.join(output_dir, "logs")
+    writer = SummaryWriter( output_dir)
     trainer = Trainer(env=env, agent=agent, writer=writer, config=train_config)
 
     # =========================
@@ -424,18 +526,24 @@ def main():
     global_step = 0
     best_reward = -np.inf
     eval_reward = 0
-    with tqdm(total=MAX_EPISODES) as pbar:
-        for episode in range(MAX_EPISODES):
-            train_reward = trainer.train() 
+    with tqdm(total=train_config.max_episodes) as pbar:
+        for episode in range(train_config.max_episodes):
+            train_reward = trainer.train(on_policy=False)
+            writer.add_scalar("Reward/train", train_reward, episode)
             # 打印训练进度
             if (episode + 1) % 10 == 0:
                 eval_reward = trainer.evaluate()
+                writer.add_scalar("Reward/eval", eval_reward, episode)
             pbar.set_postfix({
                 'global_step': trainer.global_step,
                 "train_reward": train_reward,
                 "eval_reward": eval_reward
             })
             pbar.update(1)
+
+            if trainer.global_step >= MAX_GLOBAL_STEPS:
+                print(f"Reach max global steps {MAX_GLOBAL_STEPS} at episode {episode}")
+                break
 
     # =========================
     # 测试结果
@@ -444,4 +552,5 @@ def main():
     print(f"Final evaluation reward (10 episodes): {test_reward:.2f}")
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(args)
