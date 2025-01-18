@@ -87,21 +87,21 @@
   - **Value Function：** 指在当前状态 $s$ 下，执行策略 $\pi$ 获得的累积奖励：
     
     $$
-    \begin{align}
+    \begin{aligned}
     V^{\pi}(s)&=\mathbb E_{\tau\sim \rho_\pi}[G(\tau)|s_0=s]\\
     &=\mathbb E_{(s_t,a_t)\sim \rho_\pi}  \left[ \sum_{t=0}^{\infty} \gamma^t R(s_t,a_t,s_{t+1}) |s_0=s\right]\\
     &= \mathbb E_{a\sim \pi(\cdot|s)} \left[\mathbb E_{s'\sim P(\cdot|s,a)}\left[R(s,a,s')+\gamma V^\pi(s')\right]\right]
-    \end{align}
+    \end{aligned}
     $$
   
   - **Action-Value Function:** 指在给定状态 $s$ 和当下执行的行动 $a$ 后得到的累积奖励：
     $$
-    \begin{align}
+    \begin{aligned}
     Q^{\pi}(s,a)&=\mathbb E_{\tau\sim\rho_\pi}[G(\tau)|s_0=s,a_0=a]\\
     &=\mathbb E_{s'\sim P(\cdot|s,a)}\left[R(s,a,s')+\gamma \mathbb E_{a'\sim \pi(\cdot{|s'})}[Q^{\pi}(s',a')])\right]
-    \end{align}
+    \end{aligned}
     $$
-  
+  - **Relation:**   
     $$
     V^{\pi}(s)=\mathbb E_{a\sim \pi(\cdot|s)} \left[Q^\pi(s,a)\right]
     $$
