@@ -95,6 +95,10 @@
 
 ## 2. Algorithm
 
+> On-policy: The agent **learned** and the agent **interacting with the environment** is the same. 
+>
+> Off-policy: The agent **learned** and the agent **interacting with the environment** is different.
+
 ### 2.1 Monte Carlo（MC）Control
 
 MC算法是一种基于样本的强化学习方法，通过在每个 state-action pair 访问中，使用平均累积奖励来估计值函数。MC算法通过完整的回合进行更新，即必须等到回合结束才能计算每个状态的回报，并进行值函数的更新。在每次采样时得到序列 $T=(s_0,a_0,r_1,s_1,a_1,...,s_{T-1},a_{T-1},r_{T},end)$, 对  $Q(a,s)$ 更新公式如下：
