@@ -116,18 +116,23 @@ class PolicyNetContinuous(torch.nn.Module):
         self.fc_std = torch.nn.Linear(hidden_dim, act_dim)
         self.action_bound = action_bound
 
-    def forward(self, x):
+    def forward(self, x, deterministic=False):
         x = F.relu(self.fc1(x))
         mu = self.fc_mu(x)
         std = F.softplus(self.fc_std(x))
-        dist = Normal(mu, std)
-        normal_sample = dist.rsample()  # rsample()是重参数化采样
-        log_prob = dist.log_prob(normal_sample)
-        action = torch.tanh(normal_sample)
-        # 计算tanh_normal分布的对数概率密度
-        log_prob = log_prob - torch.log(1 - torch.tanh(action).pow(2) + 1e-7)
-        action = action * self.action_bound
-        return action, log_prob
+        if deterministic:
+            log_prob = None
+            action = torch.tanh(mu) * self.action_bound
+            return action, log_prob
+        else:
+            dist = Normal(mu, std)
+            normal_sample = dist.rsample()  # rsample()是重参数化采样
+            log_prob = dist.log_prob(normal_sample)
+            action = torch.tanh(normal_sample)
+            # 计算tanh_normal分布的对数概率密度
+            log_prob = log_prob - torch.log(1 - torch.tanh(action).pow(2) + 1e-7)
+            action = action * self.action_bound
+            return action, log_prob
     
     def take_action(self, obs, deterministic=False):
         """
@@ -155,4 +160,18 @@ class PolicyNetContinuous(torch.nn.Module):
         _, log_probs = self.forward(obs)
         probs = torch.exp(log_probs)
         return log_probs, probs
+    
+    def get_probs(self, obs, action):
+        """
+        给定一个batch状态和动作，返回动作的概率。
+        """
+        x = F.relu(self.fc1(obs))
+        mu = self.fc_mu(x)
+        std = F.softplus(self.fc_std(x))
+        dist = Normal(mu, std)
+        action = action / self.action_bound
+        action_a = torch.atanh(action)
+        log_prob = dist.log_prob(action_a)
+        log_prob = log_prob - torch.log(1 - action.pow(2) + 1e-7)
+        return torch.exp(log_prob)
 

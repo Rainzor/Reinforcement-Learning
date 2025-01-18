@@ -162,7 +162,118 @@ class PPO(nn.Module):
     def take_action(self, obs, deterministic=False):
         return self.actor.take_action(obs, deterministic=deterministic)
 
-   
+class DDPG(nn.Module):
+    def __init__(self, model_config):
+        super(DDPG, self).__init__()
+        self.model_config = model_config
+        self.actor = PolicyNet(model_config.obs_dim, model_config.act_dim, model_config.hidden_dim)
+        self.critic = QNetwork(model_config.obs_dim, model_config.act_dim, model_config.hidden_dim)
+        
+        self.target_actor = PolicyNet(model_config.obs_dim, model_config.act_dim, model_config.hidden_dim)
+        self.target_critic = QNetwork(model_config.obs_dim, model_config.act_dim, model_config.hidden_dim)
+
+        # 拷贝参数到 target网络
+        self.target_actor.load_state_dict(self.actor.state_dict())
+        self.target_critic.load_state_dict(self.critic.state_dict())
+
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=model_config.lr_policy)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=model_config.lr_q)
+
+        self.gamma = model_config.gamma
+        self.tau = model_config.tau
+
+    def forward(self, obs):
+        return self.actor(obs)[0]
+
+    def update(self, transition):
+        states, actions, rewards, next_states, dones = transition
+        with torch.no_grad():
+            next_log_probs, next_probs = self.target_actor.get_log_probs(next_states)
+            q_next = self.target_critic(next_states)  # shape [batch_size, act_dim]
+            V_next = (next_probs * q_next).sum(dim=-1, keepdim=True) # shape [batch_size, 1]
+            q_target = rewards + self.gamma * (1 - dones) * V_next # shape [batch_size, 1]
+
+        q_values = self.critic(states).gather(dim=1, index=actions)  # [batch_size, 1]
+        # Critic Loss: Minimize TD error
+        critic_loss = nn.MSELoss()(q_values, q_target)
+
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        self.critic_optimizer.step()
+
+        # Actor Loss: Maximize Q value
+        log_probs, probs = self.actor.get_log_probs(states) 
+        q_values = self.critic(states).detach() # [batch_size, act_dim]
+        actor_loss = -(probs * q_values).sum(dim=-1).mean()
+
+        self.actor_optimizer.zero_grad()
+        actor_loss.backward()
+        self.actor_optimizer.step()
+
+        # --------------------------
+        # Soft Update
+        # --------------------------
+        soft_update(self.actor, self.target_actor, self.tau)
+        soft_update(self.critic, self.target_critic, self.tau)
+    
+    def take_action(self, obs, deterministic=False):
+        return self.actor.take_action(obs, deterministic=deterministic)
+
+class DDPGContinuous(nn.Module):
+    def __init__(self, model_config):
+        super(DDPGContinuous, self).__init__()
+        self.model_config = model_config
+        self.actor = PolicyNetContinuous(model_config.obs_dim, model_config.hidden_dim, model_config.act_dim, model_config.act_limit)
+        self.critic = QValueNet(model_config.obs_dim, model_config.act_dim, model_config.hidden_dim)
+        self.target_actor = PolicyNetContinuous(model_config.obs_dim, model_config.hidden_dim, model_config.act_dim, model_config.act_limit)
+        self.target_critic = QValueNet(model_config.obs_dim, model_config.act_dim, model_config.hidden_dim)
+
+        # 拷贝参数到 target网络
+        self.target_actor.load_state_dict(self.actor.state_dict())
+        self.target_critic.load_state_dict(self.critic.state_dict())
+
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=model_config.lr_policy)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=model_config.lr_q)
+
+        self.gamma = model_config.gamma
+        self.tau = model_config.tau
+    
+    def forward(self, obs):
+        return self.actor(obs)[0]
+    
+    def take_action(self, obs, deterministic=False):
+        return self.actor.take_action(obs, deterministic=deterministic)
+
+    def update(self, transition):
+        states, actions, rewards, next_states, dones = transition
+        with torch.no_grad():
+            next_actions, _ = self.target_actor(next_states, deterministic=True)
+            next_actions = next_actions.view(-1, 1)
+            q_next = self.target_critic(next_states, next_actions)  # shape [batch_size, 1]
+            q_target = rewards + self.gamma * (1 - dones) * q_next # shape [batch_size, 1]
+
+        q_values = self.critic(states, actions)  # [batch_size, 1]
+        # Critic Loss: Minimize TD error
+        critic_loss = nn.MSELoss()(q_values, q_target)
+
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        self.critic_optimizer.step()
+
+        # Actor Loss: Maximize Q value
+        actions, log_probs = self.actor(states)
+        q_values = self.critic(states, actions) # [batch_size, 1]
+        actor_loss = -(q_values).mean()
+
+        self.actor_optimizer.zero_grad()
+        actor_loss.backward()
+        self.actor_optimizer.step()
+
+        # --------------------------
+        # Soft Update
+        # --------------------------
+        soft_update(self.actor, self.target_actor, self.tau)
+        soft_update(self.critic, self.target_critic, self.tau)    
 
 class SAC(nn.Module):
     def __init__(self, model_config):
@@ -264,16 +375,22 @@ class SACContinuous(nn.Module):
         self.q2_optimizer = optim.Adam(self.q2.parameters(), lr=model_config.lr_q)
         self.policy_optimizer = optim.Adam(self.policy.parameters(), lr=model_config.lr_policy)
 
-        self.alpha = model_config.alpha
+        # self.alpha = model_config.alpha
+
+        self.log_alpha = torch.tensor(np.log(model_config.alpha), requires_grad=True, dtype=torch.float)
+        self.alpha_optimizer = optim.Adam([self.log_alpha], lr=model_config.lr_policy)
+
         self.gamma = model_config.gamma
         self.tau = model_config.tau
+        self.target_entropy = -torch.prod(torch.Tensor(model_config.act_dim)).item()  # -dim(A)
+
 
     def forward(self, obs):
         return self.policy(obs)[0]
 
     def update(self, transition):
         states, actions, rewards, next_states, dones = transition
-        actions = actions.squeeze(-1)
+        # actions = actions.squeeze(-1)
         with torch.no_grad():
             # 下一个状态的 log_probs, probs
             next_actions, next_log_probs = self.policy(next_states) # shape [batch_size, 1]
@@ -284,7 +401,7 @@ class SACContinuous(nn.Module):
             # 取两个Q网络的最小值
             min_q_next = torch.min(q1_next, q2_next) # [batch_size, 1]
 
-            V_next = (min_q_next - self.alpha * next_log_probs)
+            V_next = (min_q_next - self.log_alpha.exp() * next_log_probs)
             q_target = rewards + self.gamma * (1 - dones) * V_next # shape [batch_size, 1]
         
         q1_values = self.q1(states, actions)  # [batch_size, 1]
@@ -310,14 +427,23 @@ class SACContinuous(nn.Module):
         q2_vals = self.q2(states, actions)
         min_q = torch.min(q1_vals, q2_vals)  # [batch_size, 1]
 
-        actor_loss = (self.alpha * log_probs - min_q).mean()
+        actor_loss = (self.log_alpha.exp() * log_probs - min_q).mean()
 
         self.policy_optimizer.zero_grad()
         actor_loss.backward()
         self.policy_optimizer.step()
 
         # --------------------------
-        # 4) 软更新 target 网络
+        # 4) 更新 α
+        # --------------------------
+        alpha_loss = -(self.log_alpha.exp() * (log_probs + self.target_entropy).detach()).mean()
+
+        self.alpha_optimizer.zero_grad()
+        alpha_loss.backward()
+        self.alpha_optimizer.step()
+
+        # --------------------------
+        # 5) 软更新 target 网络
         # --------------------------
         soft_update(self.q1, self.q1_target, self.tau)
         soft_update(self.q2, self.q2_target, self.tau)
@@ -398,10 +524,10 @@ class Trainer:
  
     def train_step(self, transition):
         states = torch.FloatTensor(transition['states']).to(self.device)
-        actions = torch.LongTensor(transition['actions']).unsqueeze(-1).to(self.device)
-        rewards = torch.FloatTensor(transition['rewards']).unsqueeze(-1).to(self.device)
+        actions = torch.LongTensor(transition['actions']).view(-1,1).to(self.device)
+        rewards = torch.FloatTensor(transition['rewards']).view(-1,1).to(self.device)
         next_states = torch.FloatTensor(transition['next_states']).to(self.device)
-        dones = torch.FloatTensor(transition['dones']).unsqueeze(-1).to(self.device)
+        dones = torch.FloatTensor(transition['dones']).view(-1,1).to(self.device)
 
         self.agent.update((states, actions, rewards, next_states, dones))
 
@@ -546,7 +672,11 @@ def main(args):
         if args.model == "sac":
             agent = SACContinuous(model_config)
             train_config.on_policy = False
-            print("Using SAC Agent")
+            print("Using SAC Continuous Agent")
+        elif args.model == "ddpg":
+            agent = DDPGContinuous(model_config)
+            train_config.on_policy = False
+            print("Using DDPG Continuous Agent")
         else:
             raise ValueError("Unknown model name")
 

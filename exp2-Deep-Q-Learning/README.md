@@ -1,4 +1,4 @@
-# Lab2: Deep RL
+# Lab2: Deep Q-Leaning
 
 > Deep Q-Network
 

@@ -1,4 +1,4 @@
-# Report1：Classical RL
+# Lab1：Classical RL
 
 ## 1. Introduction
 
@@ -36,15 +36,14 @@
   常用的值函数有以下两类定义：
   
   - **Value Function：** 指在当前状态 $s$ 下，执行策略 $\pi$ 获得的累积奖励：
-  
     $$
     V^{\pi}(s)=\mathbb E_{\tau\sim\pi}[G(\tau)|s_0=s]=\mathbb E_{\tau\sim\pi,s'\sim P}\left[r(s,a)+\gamma V^{\pi}(s')\right]
     $$
-  
+    
   - **Action-Value Function:** 指在给定状态 $s$ 和当下执行的行动 $a$ 后得到的累积奖励：
   
     $$
-    Q^{\pi}(s,a)=\mathbb E_{\tau\sim\pi}[G(\tau)|s_0=s,a_0=a]=\mathbb E_{s'\sim P}\left[r(s,a+\gamma \mathbb E_{a\sim \pi}[Q^{\pi}(s',a')])\right]
+    Q^{\pi}(s,a)=\mathbb E_{\tau\sim\pi}[G(\tau)|s_0=s,a_0=a]=\mathbb E_{s'\sim P}\left[r(s,a)+\gamma \mathbb E_{a\sim \pi}[Q^{\pi}(s',a')])\right]
     $$
 
 ### 1.2 Model-Free vs Model-Based
@@ -82,6 +81,8 @@
   \right.
   $$
   
+
+​	在训练结束后，获得确定性策略 $a(s) = \arg \max_a Q^*(s,a)$
 
 在本实验中，我们主要采用**基于动作-值函数函数**的无模型强化学习方法，研究了经典的算法：
 
