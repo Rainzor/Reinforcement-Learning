@@ -302,7 +302,7 @@ class ValueNet(nn.Module):
 
 $$
 \begin{aligned}
-\mathcal{L}_{\text{Cirtic}}(\phi) = S&\mathbb E\left[(V_{\text{tgt}}(s_t)-V_\phi(s_t))^2\right]\\
+\mathcal L_{\text{Cirtic}}(\phi) = S&\mathbb E\left[(V_{\text{tgt}}(s_t)-V_\phi(s_t))^2\right]\\
 V_{\text{tgt}}(s_t)\approx r_t+\gamma &V_\phi(s_{t+1}),\quad (\text{require\_grad=Flase})
 \end{aligned}
 $$
