@@ -1,0 +1,47 @@
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{amsmath,amsfonts}
+\usepackage{color}
+
+\renewcommand{\algorithmiccomment}[1]{\textcolor{blue}{$\triangleright$ #1}}
+
+\begin{document}
+
+\begin{algorithm}[t]
+\caption{Actor-Critic Algorithm(On-Policy)}
+\label{alg:actor-critic}
+\begin{algorithmic}[1]
+
+\REQUIRE 
+  \,\\  
+  Learning rate for Actor $\alpha_\theta$,\\
+  Learning rate for Critic $\alpha_\omega$,\\
+  Initial parameters $\theta, \omega$, \\
+  Number of iterations $N$\\
+
+\STATE $\mathcal{D} \leftarrow \emptyset$ 
+\FOR{iteration = 1 to $N$}
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %% 1. Data Collection                %%
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  \STATE Run policy $\pi_\theta$ for $T$ steps to collect data $\mathcal{D}$.  
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %% 2. Critic Update                  %%
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  \STATE $\mathcal{L}_\text{Critic} \leftarrow \text{Comput Critic Loss}(\mathcal{D}, \text{V}_\omega)$
+  \STATE $\omega \leftarrow \omega + \alpha_\omega \,\nabla_{\omega} \mathcal{L}_\text{Critic}$
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %% 3. Actor Update                   %%
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  \STATE $\mathcal{L}_\text{Actor} \leftarrow \text{Compute Actor Loss}(\mathcal{D}, \pi_\theta)$ 
+  \STATE $\theta \leftarrow \theta + \alpha_\theta \,\nabla_{\theta} \mathcal{L}_\text{Actor}$
+
+\ENDFOR
+
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}

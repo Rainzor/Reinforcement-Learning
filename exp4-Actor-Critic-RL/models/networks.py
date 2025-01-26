@@ -40,7 +40,7 @@ class PolicyNet(nn.Module):
                 # 按照多项式分布进行随机采样
                 action_dist = torch.distributions.Categorical(probs)
                 action = action_dist.sample()
-        return action.c
+        return action.item()
 
     def get_log_probs(self, obs):
         """
@@ -52,60 +52,6 @@ class PolicyNet(nn.Module):
         probs = torch.softmax(logits, dim=-1)
         return log_probs, probs
 
-class QNetwork(nn.Module):
-    """
-    Q 网络：Q(s, a)的预测。
-    """
-
-    def __init__(self, obs_dim, act_dim, hidden_dim=128):
-        super(QNetwork, self).__init__()
-        self.net = nn.Sequential(
-                            nn.Linear(obs_dim, hidden_dim), 
-                            nn.ReLU(), 
-                            nn.Linear(hidden_dim, hidden_dim), 
-                            nn.ReLU(), 
-                            nn.Linear(hidden_dim, act_dim))
-        self.num_actions = act_dim
-
-    def forward(self, obs):
-        """
-        返回 Q(s, a) 对于每个动作的预测 [batch_size, act_dim]
-        """
-        return self.net(obs)
-
-class QValueNet(torch.nn.Module):
-    def __init__(self, obs_dim, act_dim, hidden_dim=128):
-        super(QValueNet, self).__init__()
-        self.fc1 = torch.nn.Linear(obs_dim + act_dim, hidden_dim)
-        self.fc2 = torch.nn.Linear(hidden_dim, hidden_dim)
-        self.fc_out = torch.nn.Linear(hidden_dim, 1)
-
-    def forward(self, x, a):
-        # print(x.shape, a.shape)
-        cat = torch.cat([x, a], dim=1) # 拼接状态和动作
-        x = F.relu(self.fc1(cat))
-        x = F.relu(self.fc2(x))
-        return self.fc_out(x)
-
-class ValueNet(nn.Module):
-    """
-    值网络：V(s)的预测。
-    """
-
-    def __init__(self, obs_dim, hidden_dim=128):
-        super(ValueNet, self).__init__()
-        self.net = nn.Sequential(
-                        nn.Linear(obs_dim, hidden_dim), 
-                        nn.ReLU(), 
-                        # nn.Linear(hidden_dim, hidden_dim), 
-                        # nn.ReLU(), 
-                        nn.Linear(hidden_dim, 1))
-
-    def forward(self, obs):
-        """
-        返回 V(s) 的预测值
-        """
-        return self.net(obs)
 
 
 class PolicyNetContinuous(torch.nn.Module):
@@ -175,3 +121,58 @@ class PolicyNetContinuous(torch.nn.Module):
         log_prob = log_prob - torch.log(1 - action.pow(2) + 1e-7)
         return torch.exp(log_prob)
 
+
+class QNetwork(nn.Module):
+    """
+    Q 网络：Q(s, a)的预测。
+    """
+
+    def __init__(self, obs_dim, act_dim, hidden_dim=128):
+        super(QNetwork, self).__init__()
+        self.net = nn.Sequential(
+                            nn.Linear(obs_dim, hidden_dim), 
+                            nn.ReLU(), 
+                            nn.Linear(hidden_dim, hidden_dim), 
+                            nn.ReLU(), 
+                            nn.Linear(hidden_dim, act_dim))
+        self.num_actions = act_dim
+
+    def forward(self, obs):
+        """
+        返回 Q(s, a) 对于每个动作的预测 [batch_size, act_dim]
+        """
+        return self.net(obs)
+
+class QValueNet(torch.nn.Module):
+    def __init__(self, obs_dim, act_dim, hidden_dim=128):
+        super(QValueNet, self).__init__()
+        self.fc1 = torch.nn.Linear(obs_dim + act_dim, hidden_dim)
+        self.fc2 = torch.nn.Linear(hidden_dim, hidden_dim)
+        self.fc_out = torch.nn.Linear(hidden_dim, 1)
+
+    def forward(self, x, a):
+        # print(x.shape, a.shape)
+        cat = torch.cat([x, a], dim=1) # 拼接状态和动作
+        x = F.relu(self.fc1(cat))
+        x = F.relu(self.fc2(x))
+        return self.fc_out(x)
+
+class ValueNet(nn.Module):
+    """
+    值网络：V(s)的预测。
+    """
+
+    def __init__(self, obs_dim, hidden_dim=128):
+        super(ValueNet, self).__init__()
+        self.net = nn.Sequential(
+                        nn.Linear(obs_dim, hidden_dim), 
+                        nn.ReLU(), 
+                        # nn.Linear(hidden_dim, hidden_dim), 
+                        # nn.ReLU(), 
+                        nn.Linear(hidden_dim, 1))
+
+    def forward(self, obs):
+        """
+        返回 V(s) 的预测值
+        """
+        return self.net(obs)
