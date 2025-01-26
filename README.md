@@ -38,7 +38,7 @@
 - Double DQN
   $$
   loss(\phi|\phi^-)=\frac{1}{2N}\sum_{i=1}^N\left[Q_{e}(s_i,a_i|\phi)-(R_i+\gamma Q_{t}(s_i',a_i'|\phi^-)\right]\\
-  a'_i = \arg\max_ {a'} Q _ e(s_ i',a'|\phi)
+  a'_ i = \arg \max _ {a'} Q _ e(s_ i',a'|\phi)
   $$
 
 - Dueling DQN
