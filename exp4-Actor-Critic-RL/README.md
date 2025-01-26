@@ -301,8 +301,10 @@ class ValueNet(nn.Module):
 我们利用基于值的**时间差分算法 (temporal difference，TD)** 来优化 $V_\theta(s_t)$，即对于单个数据 $(s_t,a_t,r_{t},s_{t+1})$ 定义如下价值函数的损失函数：
 
 $$
-\mathcal{L}_{\text{Cirtic}}(\phi) = \mathbb E\left[(V_{\text{tgt}}(s_t)-V_\phi(s_t))^2\right]\\
-V_{\text{tgt}}(s_t)\approx r_t+\gamma V_\phi(s_{t+1}),\quad (\text{require\_grad=Flase})
+\begin{aligned}
+\mathcal{L}_{\text{Cirtic}}(\phi) = S&\mathbb E\left[(V_{\text{tgt}}(s_t)-V_\phi(s_t))^2\right]\\
+V_{\text{tgt}}(s_t)\approx r_t+\gamma &V_\phi(s_{t+1}),\quad (\text{require\_grad=Flase})
+\end{aligned}
 $$
 
 这里利用单步的估计来近似。
@@ -355,9 +357,9 @@ $$
   \min_\theta\mathcal L_{\text{Actor}}(\theta) = -\max_{\theta} \sum_{t=0}^T \log \pi_\theta(a_t|s_t)\cdot A(s_t,a_t)
   $$
   
-  当 $A(s_t,a _ {+{})>0$ 时，$\pi_\theta(a_+|s_t)$ 倾向于值为1，$\log\pi_\theta\rightarrow 0$，使得策略更加倾向于选择动作 $a_{+}$
+  当 $A(s_t,a_{+})$ > 0 时，$\pi_\theta(a_+|s_t)$ 倾向于值为1，$\log\pi_\theta\rightarrow 0$，使得策略更加倾向于选择动作 $a_{+}$
 
-  当 $A(s_t,a_-)<0$ 时，$\pi_\theta(a_-|s_t)$ 倾向于值为 $0$，$\log\pi_\theta\rightarrow -\infty$，使得策略不倾向于选择动作 $a_{+}$
+  当 $A(s_t,a_-)$ < 0 时，$\pi_\theta(a_-|s_t)$ 倾向于值为 $0$，$\log\pi_\theta\rightarrow -\infty$，使得策略不倾向于选择动作 $a_{+}$
 
 在实际代码实现时，考虑到我们采用的价值函数为 $V_\phi(s_t)$，因此采用**时间差分(temporal difference, TD)** 的方式间接近似 $A(s_t,a_t)$
 
@@ -590,8 +592,10 @@ $$
 对于 **Critic** 我们采用与 **DQN** 算法相同的更新方式：TD Error，不同的是我们采用 **Actor** 的Target 网络输出确定性动作作为参考值：
 
 $$
+\begin{aligned}
 \mathcal{L}_{\text{Cirtic}}(\phi|s_t,a_t,r_t,s_{t+1}) = (Q^{\text{tgt}}-Q_\phi(s_t,a_t))^2\\
 Q^{\text{tgt}}=r_t+\gamma Q^{\text{tgt}}_\phi(s_{t+1},\mu^{\text{tgt}}(s_{t+1}))
+\end{aligned}
 $$
 
 ##### Actor Loss
@@ -599,8 +603,10 @@ $$
 对于 **Actor**，考虑到我们采用了 **Off-Policy** 的训练方式，可以认为此时抽样得到的数据和训练的策略是”近似独立“的，因此可以认为我们获得的采样数据是均匀分布 $(a_t,s_t)\sim \mathcal U$  ，我们采用最直接的期望回报 Reward 作为损失函数：
 
 $$
-\mathcal L_{\text{actor}}(\theta|s_t) = -Q(s_t,\mu_\theta(s_t)\\
-\nabla \mathcal L_{\text{actor}}(\theta) = -\nabla_a Q(s_t,a)|_{a=\mu(s_t|\theta)}\cdot\nabla_\theta \mu(s_t|\theta)
+\begin{aligned}
+\mathcal L_{\text{actor}}(\theta|s_t) &= -Q(s_t,\mu_\theta(s_t)\\
+\nabla \mathcal L_{\text{actor}}(\theta) = -\nabla_a& Q(s_t,a)|_{a=\mu(s_t|\theta)}\cdot\nabla_\theta \mu(s_t|\theta)
+\end{aligned}
 $$
 
 这样定义的损失函数优化后，符合我们对最佳确定性动作 $\mu^*$ 的预期
