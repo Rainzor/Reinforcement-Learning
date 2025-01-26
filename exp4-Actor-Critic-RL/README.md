@@ -333,10 +333,10 @@ $$
 
 其中，$\Psi_t$ 有很多形式：
 
-1. $G(\tau|s_0,a_0)$ 轨迹总回报
-2. $G(\tau|s_t,a_t)$ 当前动作 $a_t$ 之后的回报
-3. $Q(s_t,a_t)$ Action Value Function
-4. $A(s_t,a_t)=Q(s_t,a_t)-\mathbb E_{a} Q(s_t,a) = Q(s_t,a_t)-V(s_t)$ 
+1. $G(\tau|s_0,a_0)$ :轨迹总回报
+2. $G(\tau|s_t,a_t)$ :当前动作 $a_t$ 之后的回报
+3. $Q(s_t,a_t)$ :Action Value Function
+4. $A(s_t,a_t)=Q(s_t,a_t)-\mathbb E_{a} Q(s_t,a) = Q(s_t,a_t)-V(s_t)$ : 优势函数
 
 对应的损失函数为：
 
