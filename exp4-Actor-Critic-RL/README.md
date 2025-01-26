@@ -302,7 +302,7 @@ class ValueNet(nn.Module):
 
 $$
 \begin{aligned}
-\mathcal L_{\text{Cirtic}}(\phi) = S&\mathbb E\left[(V_{\text{tgt}}(s_t)-V_\phi(s_t))^2\right]\\
+\mathcal{L}_{\text{Cirtic}}(\phi) = S&\mathbb E\left[(V_{\text{tgt}}(s_t)-V_\phi(s_t))^2\right]\\
 V_{\text{tgt}}(s_t)\approx r_t+\gamma &V_\phi(s_{t+1}),\quad (\text{require\_grad=Flase})
 \end{aligned}
 $$
@@ -333,10 +333,10 @@ $$
 
 其中，$\Psi_t$ 有很多形式：
 
-1. $G(\tau|s_0,a_0)$ :轨迹总回报
-2. $G(\tau|s_t,a_t)$ :当前动作 $a_t$ 之后的回报
-3. $Q(s_t,a_t)$ :Action Value Function
-4. $A(s_t,a_t)=Q(s_t,a_t)-\mathbb E_{a} Q(s_t,a) = Q(s_t,a_t)-V(s_t)$ : 优势函数
+1. $G(\tau|s_0,a_0)$ 轨迹总回报
+2. $G(\tau|s_t,a_t)$ 当前动作 $a_t$ 之后的回报
+3. $Q(s_t,a_t)$ Action Value Function
+4. $A(s_t,a_t)=Q(s_t,a_t)-\mathbb E_{a} Q(s_t,a) = Q(s_t,a_t)-V(s_t)$ 
 
 对应的损失函数为：
 
@@ -593,8 +593,8 @@ $$
 
 $$
 \begin{aligned}
-\mathcal L_{\text{Cirtic}}(\phi|s_t,a_t,r_t,s_{t+1}) = (Q^{\text{tgt}}-Q_\phi(s_t,a_t))^2\\
-Q^{\text{tgt}}=r_t+\gamma Q^{\text{tgt}} _ \phi(s_{t+1},\mu^{\text{tgt}}(s_{t+1}))
+\mathcal{L}_{\text{Cirtic}}(\phi|s_t,a_t,r_t,s_{t+1}) = (Q^{\text{tgt}}-Q_\phi(s_t,a_t))^2\\
+Q^{\text{tgt}}=r_t+\gamma Q^{\text{tgt}}_\phi(s_{t+1},\mu^{\text{tgt}}(s_{t+1}))
 \end{aligned}
 $$
 
@@ -605,7 +605,7 @@ $$
 $$
 \begin{aligned}
 \mathcal L_{\text{actor}}(\theta|s_t) &= -Q(s_t,\mu_\theta(s_t)\\
-\nabla \mathcal L_{\text{actor}}(\theta) = -\nabla_a& Q(s_t,a)|_ {a=\mu(s_t|\theta)}\cdot\nabla_\theta \mu(s_t|\theta)
+\nabla \mathcal L_{\text{actor}}(\theta) = -\nabla_a& Q(s_t,a)|_{a=\mu(s_t|\theta)}\cdot\nabla_\theta \mu(s_t|\theta)
 \end{aligned}
 $$
 

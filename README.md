@@ -60,7 +60,7 @@
 - Conservative Q-Learning
 
 $$
-\hat Q^{k+1}\leftarrow \arg \min_Q \left\{\beta\cdot \mathbb E_{s\sim \mathcal D}\left[\log\sum_a \exp(Q(s,a))-\mathbb E_{ a\sim \hat \pi(a|s)}Q(s,a)\right] + \frac{1}{2} \cdot \mathbb E_{(s,a,s')\sim \mathcal D}\left[\left(Q(s,a)-\mathcal B^\pi \hat Q^{k}(s,a)\right)^2\right]\right\}
+\hat Q^{k+1}\leftarrow \arg \min_Q \beta\cdot \mathbb E_{s\sim \mathcal D}\left[\log\sum_a \exp(Q(s,a))-\mathbb E_{ a\sim \hat \pi(a|s)}Q(s,a)\right] + \frac{1}{2} \cdot \mathbb E_{(s,a,s')\sim \mathcal D}\left[\left(Q(s,a)-\mathcal B^\pi \hat Q^{k}(s,a)\right)^2\right]
 $$
 
 $$
@@ -97,4 +97,3 @@ $$
         width = "40%">
     <br>
 </div>
-
