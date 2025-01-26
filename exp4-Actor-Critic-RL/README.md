@@ -594,7 +594,7 @@ $$
 $$
 \begin{aligned}
 \mathcal L_{\text{Cirtic}}(\phi|s_t,a_t,r_t,s_{t+1}) = (Q^{\text{tgt}}-Q_\phi(s_t,a_t))^2\\
-Q^{\text{tgt}}=r_t+\gamma Q^{\text{tgt}}_\phi(s_{t+1},\mu^{\text{tgt}}(s_{t+1}))
+Q^{\text{tgt}}=r_t+\gamma Q^{\text{tgt}} _ \phi(s_{t+1},\mu^{\text{tgt}}(s_{t+1}))
 \end{aligned}
 $$
 
