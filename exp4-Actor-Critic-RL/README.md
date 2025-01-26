@@ -593,7 +593,7 @@ $$
 
 $$
 \begin{aligned}
-\mathcal{L}_{\text{Cirtic}}(\phi|s_t,a_t,r_t,s_{t+1}) = (Q^{\text{tgt}}-Q_\phi(s_t,a_t))^2\\
+\mathcal L_{\text{Cirtic}}(\phi|s_t,a_t,r_t,s_{t+1}) = (Q^{\text{tgt}}-Q_\phi(s_t,a_t))^2\\
 Q^{\text{tgt}}=r_t+\gamma Q^{\text{tgt}}_\phi(s_{t+1},\mu^{\text{tgt}}(s_{t+1}))
 \end{aligned}
 $$
@@ -605,7 +605,7 @@ $$
 $$
 \begin{aligned}
 \mathcal L_{\text{actor}}(\theta|s_t) &= -Q(s_t,\mu_\theta(s_t)\\
-\nabla \mathcal L_{\text{actor}}(\theta) = -\nabla_a& Q(s_t,a)|_{a=\mu(s_t|\theta)}\cdot\nabla_\theta \mu(s_t|\theta)
+\nabla \mathcal L_{\text{actor}}(\theta) = -\nabla_a& Q(s_t,a)|_ {a=\mu(s_t|\theta)}\cdot\nabla_\theta \mu(s_t|\theta)
 \end{aligned}
 $$
 
