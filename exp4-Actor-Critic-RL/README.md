@@ -1,7 +1,5 @@
 # Lab4: Actor Critic RL
 
-> SA24229016 王润泽
->
 > Keywords: Model-Free、Policy-based RL、Deep Reinforcement Learning
 
 ## 1. Abstract
@@ -301,6 +299,7 @@ class ValueNet(nn.Module):
 ```
 
 我们利用基于值的**时间差分算法 (temporal difference，TD)** 来优化 $V_\theta(s_t)$，即对于单个数据 $(s_t,a_t,r_{t},s_{t+1})$ 定义如下价值函数的损失函数：
+
 $$
 \mathcal{L}_{\text{Cirtic}}(\phi) = \mathbb E\left[(V_{\text{tgt}}(s_t)-V_\phi(s_t))^2\right]\\
 V_{\text{tgt}}(s_t)\approx r_t+\gamma V_\phi(s_{t+1}),\quad (\text{require\_grad=Flase})
@@ -325,9 +324,11 @@ class PolicyNet(nn.Module):
 ```
 
 根据策略梯度法 (Policy Gradient)，可以把梯度定义成如下更一般的形式：
+
 $$
 g=- \sum_{t=0}^T\Psi_t\nabla_\theta\log\pi_\theta(a_t|s_t)
 $$
+
 其中，$\Psi_t$ 有很多形式：
 
 1. $G(\tau|s_0,a_0)$ 轨迹总回报
@@ -336,12 +337,15 @@ $$
 4. $A(s_t,a_t)=Q(s_t,a_t)-\mathbb E_{a} Q(s_t,a) = Q(s_t,a_t)-V(s_t)$ 
 
 对应的损失函数为：
+
 $$
 \mathcal L_{\text Actor} = \mathcal L_{\pi}(\theta) =- \sum_{t=0}^T\Psi_t\log\pi_\theta(a_t|s_t)
 $$
+
 我们主要关注最后一种优势函数 (**Advantage Value Function**)，作为指导 $\pi_\theta$ 训练的指标，选择优势函数有如下几个原因：
 
 - 如果直接估计 **Action Value Function** 可能因为Value Function 可能由于数值过大，导致在估计时产生的方差偏大，因此采用 **Advantage Value Function**，通过减去基线函数 **baseline function** 来减少方差.
+- 
   $$
   \mathbb E_{s,a}\left[(Q-\mathbb E_{s,a}[Q])^2\right]\ge\mathbb E_{s,a}\left[(Q-\mathbb E_{a}[Q])^2\right]
   $$
@@ -350,11 +354,13 @@ $$
   $$
   \min_\theta\mathcal L_{\text{Actor}}(\theta) = -\max_{\theta} \sum_{t=0}^T \log \pi_\theta(a_t|s_t)\cdot A(s_t,a_t)
   $$
-  当 $A(s_t,a_+)>0$ 时，$\pi_\theta(a_+|s_t)$ 倾向于值为1，$\log\pi_\theta\rightarrow 0$，使得策略更加倾向于选择动作 $a_{+}$
+  
+  当 $A(s_t,a _ {+{})>0$ 时，$\pi_\theta(a_+|s_t)$ 倾向于值为1，$\log\pi_\theta\rightarrow 0$，使得策略更加倾向于选择动作 $a_{+}$
 
   当 $A(s_t,a_-)<0$ 时，$\pi_\theta(a_-|s_t)$ 倾向于值为 $0$，$\log\pi_\theta\rightarrow -\infty$，使得策略不倾向于选择动作 $a_{+}$
 
 在实际代码实现时，考虑到我们采用的价值函数为 $V_\phi(s_t)$，因此采用**时间差分(temporal difference, TD)** 的方式间接近似 $A(s_t,a_t)$
+
 $$
 A(s_t,a_t)=Q(s_t,a_t)-V_\theta(s_t)\approx R(s_t,a_t)+\gamma V_\theta(s_{t+1})-V_\theta(s_t)
 $$
@@ -572,14 +578,17 @@ class QValueNet(torch.nn.Module):
 ##### Explore
 
 但是，由于 Actor 输出的是一个确定性动作，如果完全使用 $\mu(s)$ 行动，探索性不足。DDPG 需要在环境交互阶段向输出的动作中添加**噪声**，即：在每一步向 Actor 输出加一个独立的高斯噪声 $\mathcal{N}(0, \sigma)$，增强探索。探索时执行的策略可写为：
+
 $$
 a_t = \mu_\theta(s_t)+\mathcal N(0,\sigma)
 $$
+
 #### 3.3.3 Loss
 
 ##### Critic Loss
 
 对于 **Critic** 我们采用与 **DQN** 算法相同的更新方式：TD Error，不同的是我们采用 **Actor** 的Target 网络输出确定性动作作为参考值：
+
 $$
 \mathcal{L}_{\text{Cirtic}}(\phi|s_t,a_t,r_t,s_{t+1}) = (Q^{\text{tgt}}-Q_\phi(s_t,a_t))^2\\
 Q^{\text{tgt}}=r_t+\gamma Q^{\text{tgt}}_\phi(s_{t+1},\mu^{\text{tgt}}(s_{t+1}))
@@ -588,11 +597,14 @@ $$
 ##### Actor Loss
 
 对于 **Actor**，考虑到我们采用了 **Off-Policy** 的训练方式，可以认为此时抽样得到的数据和训练的策略是”近似独立“的，因此可以认为我们获得的采样数据是均匀分布 $(a_t,s_t)\sim \mathcal U$  ，我们采用最直接的期望回报 Reward 作为损失函数：
+
 $$
 \mathcal L_{\text{actor}}(\theta|s_t) = -Q(s_t,\mu_\theta(s_t)\\
 \nabla \mathcal L_{\text{actor}}(\theta) = -\nabla_a Q(s_t,a)|_{a=\mu(s_t|\theta)}\cdot\nabla_\theta \mu(s_t|\theta)
 $$
+
 这样定义的损失函数优化后，符合我们对最佳确定性动作 $\mu^*$ 的预期
+
 $$
 \mu^* = \arg\max_\mu Q(s_t,\mu)
 $$
@@ -640,9 +652,11 @@ TD3 之所以被称为“Twin Delayed DDPG”，主要是因为它在 DDPG 的�
 在 DDPG 中，只有一个 Critic 网络 $Q(s,a|\phi)$，它在计算目标值时可能出现**过估计**问题：由于函数逼近和梯度更新方式，Critic 往往会高估真实的 Q 值，从而导致策略学到不稳定或次优行为。
 
 **双重 Critic（Twin Critics）**：借鉴 **Double Q-Learning** 的思想，通过同时训练两个独立的 Critic 网络 $Q_1(s,a|\phi_1), Q_2(s,a|\phi_2) $ 来减轻 Q 值过估计。在更新时取它们的**最小值**作为 Target Q 值:
+
 $$
 Q^{\text{tgt}}=r+\gamma\min\left( Q^{\text{tgt}}_1(s,\hat\mu^{\text{tgt}}(s)|\phi_1),Q^{\text{tgt}}_2(s,\hat\mu^{\text{tgt}}(s)|\phi_2))\right)
 $$
+
 所以 **TD3** 算法共需要维护 **6 个网络**。
 
 #### 3.4.2 Target Policy Smoothing
@@ -650,6 +664,7 @@ $$
 在计算下一时刻目标 Q 值时，DDPG 直接把 “Target Actor” 给出的动作 $\mu^{\text{tgt}}(s)$ 作为输入。这样在高维连续动作环境中，会因对动作输入的微小偏差而造成 Critic 输出的大波动，从而使学习不稳定。
 
 **目标动作平滑（Target Policy Smoothing）**：在 Critic 的目标计算中，对动作加一些小的随机噪声，以减小学习目标的不稳定，起到类似 Conservative Q-Learning 的平滑效果:
+
 $$
 \hat \mu^{\text{tgt}}(s) = \mu^{\text{tgt}}(s)+\text{CLIP}(\mathcal N(0,\sigma),-c,c)
 $$
@@ -715,6 +730,7 @@ def update(self, transition):
 首先，为了解决确定性策略（Deterministic Policy）带来的探索性不足的问题，**SAC** 直接学习**随机策略（Stochastic Policy）**，在输出层得到动作分布参数，我们主要讨论连续动作空间的处理方式，对于离散动作空间很容易推广。
 
 针对连续动作空间，`Policy Network` 通常输出高斯分布参数 $\mu_\theta(s), \sigma_\theta(s)$, 再通过 **Reparameterization ** 方法保证策略输出的随机性：
+
 $$
 a = \tanh(\mu_\theta(s)+\sigma_\theta(s)\odot \epsilon),\quad \epsilon\sim \mathcal N(0,1)
 $$
@@ -751,15 +767,18 @@ class PolicyNet(torch.nn.Module):
 #### 3.5.2 Maximum Entropy
 
 **最大熵强化学习**（maximum entropy RL）的思想就是在优化目标中同时最大化“回报”与“策略熵”，即希望策略**既能拿到高回报，又要保持足够的随机性**。目标可以写为：
+
 $$
 \begin{aligned}
 \mathcal J(\theta|s_t)&=\mathbb E_{a\sim\pi_\theta(\cdot|s_t)}\left[Q(s_t,a)\right]+\alpha \mathcal H(\pi_\theta(\cdot|s_t))\\
 &=\mathbb E_{a\sim\pi_\theta(\cdot|s_t)}\left[Q(s_t,a)-\alpha\log\pi_\theta(a_|s_t)\right]
 \end{aligned}
 $$
+
 即在相比原本的RL算法，SAC 只是在原来价值函数后多了一个熵值项 $\mathcal H$ 作为正则项约束，以增加策略 $\pi_\theta$ 的随机性。
 
 如果我们利用**变分法**，可以得到在状态 $s_t$ 下优化的最佳策略 $\pi^*$
+
 $$
 \begin{aligned}
 \pi^*(a|s_t)&=\arg\max_\pi \int_{\mathcal A} [Q(s_t,a)-\alpha\log\pi(a|s_t)]\pi(a|s_t)d a\\
@@ -772,6 +791,7 @@ $$
 #### 3.5.3 Automatic Temperature Tuning
 
 引入一个“自动温度调节（$\alpha$ 自动学习）”机制，根据当前策略的实际熵水平，自适应地调整探索强度：
+
 $$
 \alpha\leftarrow \alpha−\eta\nabla_ 
 \alpha\mathbb E_{a_t}\left[\alpha\log\pi(a_t|s_t)+\alpha \mathcal H_0\right],\quad \mathcal H_0=-|\mathcal A|
