@@ -8,7 +8,15 @@
 
 > 虽然与在线强化学习(on-policy, off-policy)不同，但某种程度上，可以从形式上把 Offline RL 看做 Online Off-policy RL 的一个切片，要求用某一时刻 replay buffer 中的轨迹数据直接学出好策略，因此理论上 DQN、DDPG 等的 Online Off-policy RL 方法都是可以直接拿过来用的。
 
-![img](assets/960.eab822fa.png)
+<div align=center>
+    <img style = "
+        border-radius: 0.3125em;
+        box-shadow: 0 2px 4px 0 rgba(34,36,38,.12),0 2px 10px 0 rgba(34,36,38,.08);" 
+       	src="./assets/960.eab822fa.png"
+        width = "80%">
+    <br>
+    <p> </p>
+</div>
 
 但是在实际训练时，由于使用的是**"有限"、"静态"**数据集，不可避免的造成 **Distributional Shift** 问题。这导致对于没有在数据集中出现过的数据 (Out-of-distribution, OOD)，由于学习的泛化能力有限，在估计 $Q(s,a)$ 时，策略容易造成过高估计(**over-estimation**)。
 
@@ -155,7 +163,15 @@ def DQL(data):
 
 对比 Double Deep Q-Learning 和 添加了 Conservation 约束的情况下，实验得到收益和训练步数之间的关系如下：
 
-<img src="assets/wocql.png" width=50%>
+<div align=center>
+    <img style = "
+        border-radius: 0.3125em;
+        box-shadow: 0 2px 4px 0 rgba(34,36,38,.12),0 2px 10px 0 rgba(34,36,38,.08);" 
+       	src="./assets/wocql.png"
+        width = "80%">
+    <br>
+    <p> </p>
+</div>
 
 可以看到如果没有 $CQL$ 进行约束，由于 extrapolation error 的问题会导致DQL无法收敛。
 
@@ -197,7 +213,15 @@ class ReplayBuffer:
 
 结果如下：
 
-<img src="assets/size.png" width=50%>
+<div align=center>
+    <img style = "
+        border-radius: 0.3125em;
+        box-shadow: 0 2px 4px 0 rgba(34,36,38,.12),0 2px 10px 0 rgba(34,36,38,.08);" 
+       	src="./assets/size.png"
+        width = "80%">
+    <br>
+    <p> </p>
+</div>
 
 可以看到，更大的数据集有利于使得 Behavior Policy 更加接近真实情况，有助于收敛更快，以及最终收敛到更好的结果。当数据集很小时，即使在 CQL 的约束下，仍然无法收敛，说明了数据集大小的重要性。
 
@@ -211,7 +235,15 @@ Q(s,a) \leftarrow Q(s,a)+\alpha[R(s,a,s')+\gamma Q(s',a')-Q(s,a)]
 $$
 对比结果如下：
 
-<img src="assets/gamma.png" width=50%>
+<div align=center>
+    <img style = "
+        border-radius: 0.3125em;
+        box-shadow: 0 2px 4px 0 rgba(34,36,38,.12),0 2px 10px 0 rgba(34,36,38,.08);" 
+       	src="./assets/gamma.png"
+        width = "80%">
+    <br>
+    <p> </p>
+</div>
 
 可以看到，在一定步数范围内，更大的 $\gamma$，Q值会更加注重未来的奖励，有利于更快的收敛。
 
@@ -219,7 +251,15 @@ $$
 
 $\beta$ 为正则项系数，在约束程度和价值估计准确程度的 trade-off 做平衡，对比如下：
 
-<img src="assets/beta.png" width=50%>
+<div align=center>
+    <img style = "
+        border-radius: 0.3125em;
+        box-shadow: 0 2px 4px 0 rgba(34,36,38,.12),0 2px 10px 0 rgba(34,36,38,.08);" 
+       	src="./assets/beta.png"
+        width = "80%">
+    <br>
+    <p> </p>
+</div>
 
 从图中可以看到：
 
